@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --text-primary: 255, 255, 255;
+    --text-secondary: 200, 200, 200;
+    --bg-primary: 17, 24, 39;
+    --bg-secondary: 31, 41, 55;
+    --bg-tertiary: 55, 65, 81;
+  }
+}
+
+@import url(/fonts.css);
+/* @import url('https.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap'); /* --> pas mal, mais pas mon style */
+/* @import url('https.googleapis.com/css2?family=Source+Code+Pro:wght@400;700&display=swap'); /* --> un peu écrasée, ce qui donne un look intéressant */
+/* @import url('https.googleapis.com/css2?family=Cousine&display=swap'); /* --> initialement ma préférée, mais un peu trop classique */
+/* @import url('https.googleapis.com/css2?family=Source+Sans+Pro:wght@400;700&display=swap'); /* --> classe mais un peu petite */
+/* @import url('https.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap'); /* --> bien */
+/* @import url('https.googleapis.com/css2?family=Roboto:wght@400;700&display=swap'); /* --> équilibré un peu petite */
+/* @import url('https.googleapis.com/css2?family=Lato:wght@400;700&display=swap'); /* --> petit */
+/* @import url('https.googleapis.com/css2?family=Latin+Modern+Roman:wght@400;700&display=swap'); /* --> moche */
+
+
+body {
+  font-family: 'iAWriter', monospace;
+  font-size: 110%;
+}
+
+.katex {
+  font-family: 'iAWriter', monospace;
+}
+
+.katex .mathnormal, .katex .mathdefault, .katex .mathrm {
+  font-family: 'iAWriter', monospace;
+}
+
+.MathJax_Display, .MathJax, .mjx-math {
+  font-family: 'iAWriter', monospace;
+}
+
+.MathJax_Preview, .mjx-preview {
+  font-family: 'iAWriter', monospace;
+}
+
+.MathJax_Preview, .mjx-preview {
+  font-family: 'iAWriter', monospace;
+}
+
+
+/* Style pour tous les éléments de contenu markdown */
+.markdown-content * {
+  white-space: pre-wrap !important;
+}
+
+.markdown-content pre, 
+.markdown-content code,
+.react-syntax-highlighter,
+.react-syntax-highlighter > code,
+.react-syntax-highlighter > pre,
+.react-syntax-highlighter-line-number {
+  white-space: pre-wrap !important;
+  tab-size: 4 !important;
+  -moz-tab-size: 4 !important;
+}
+
+/* Styles spécifiques pour les tableaux */
+.markdown-content table td,
+.markdown-content table th {
+  /* white-space: pre-wrap !important; */
+  word-break: break-word;
+}
+
+/* Style pour les listes
+.markdown-content ul,
+.markdown-content ol,
+.markdown-content li {
+  white-space: pre-wrap !important;
+}
+*/
+/* Style pour les paragraphes et autres contenus textuels */
+.markdown-content p,
+.markdown-content blockquote,
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5 {
+  white-space: pre-wrap !important;
+}
+
+p, ol, ul, li, h1, h2, h3, h4, h5, h6 {
+  margin: 0; /* ou la valeur que vous préférez */
+}
+
+/* Ou encore plus spécifique pour le contexte de markdown */
+.markdown-content p,
+.markdown-content ol,
+.markdown-content ul,
+.markdown-content li {
+  margin: 0;
+}
+
+/* Assurer que les espaces multi sont préservés dans les entrées utilisateur */
+.user-message .markdown-content {
+  white-space: pre-wrap !important;
+}
+
+.markdown-content pre,
+.markdown-content code,
+.react-syntax-highlighter {
+  white-space: pre !important;
+  overflow-x: auto;  /* Permet de faire défiler horizontalement plutôt que de wrapper */
+}
+
+/* Styles pour les blocs de code */
+.copyable-code {
+  white-space: pre !important;
+}
+
+/* Optionnellement, ajoutez ceci pour améliorer l'expérience de copie */
+.copyable-code pre {
+  white-space: pre !important;
+}
+
+/* Pour éviter que les blocs de code séparés n'ajoutent des espaces */
+pre + pre {
+  margin-top: 0 !important;
+}
