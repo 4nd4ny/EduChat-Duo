@@ -1,28 +1,16 @@
 import { OpenAIApiKey } from "../env";
-import { OpenAIChatMessage, OpenAIConfig } from "./OpenAI.types";
+import { 
+  OpenAIChatMessage, 
+  OpenAIConfig, 
+  OpenAIResponseItem, 
+  OpenAIContentItem,
+  OpenAIMessageWithSystemRole 
+} from "./OpenAI.types";
 
 export type OpenAIRequest = {
   messages: OpenAIChatMessage[];
   thinking?: boolean; // Parameter for thinking mode
 } & OpenAIConfig;
-
-// Define interfaces for OpenAI API response types
-interface OpenAIResponseItem {
-  type: string;
-  [key: string]: any;
-}
-
-interface OpenAIContentItem {
-  type: string;
-  text?: string;
-  [key: string]: any;
-}
-
-// Define interface for messages that can include system role
-interface OpenAIMessageWithSystemRole {
-  role: "assistant" | "user" | "system";
-  content: string;
-}
 
 export const getOpenAICompletion = async (
   payload: OpenAIRequest
@@ -31,12 +19,12 @@ export const getOpenAICompletion = async (
   let currentTokenUsage = 0;  // Variable for tokens used in the current call
 
   try {
-    // Determine if we should use the new "reasoning" API for O1 models
-    const isO1Model = payload.model.startsWith('o1-') || payload.model.startsWith('o3-');
+    // Determine if we should use the Responses API for o4-mini and o3 models
+    const isResponseAPIModel = payload.model.startsWith('o4-') || payload.model === 'o3';
     
     // Handle different model types differently
-    if (isO1Model) {
-      // --- CORRECTED SECTION for O1/O3 models using Responses API ---
+    if (isResponseAPIModel) {
+      // --- Responses API section for O4-mini/O3 models ---
       let requestBodyForResponsesAPI: any = { // Use 'any' for simplicity or define a specific type
         model: payload.model,
         // Use 'input' instead of 'messages'
@@ -87,8 +75,8 @@ export const getOpenAICompletion = async (
         throw new Error(errorMessage);
       }
 
-      // --- CORRECTED RESPONSE HANDLING for Responses API ---
       const data = await response.json();
+      // console.log("OpenAI response structure:", Object.keys(data));
 
       // 1. Handle incomplete status (peut contenir du texte partiel)
       if (data && data.status === "incomplete" && data.incomplete_details?.reason === "max_output_tokens") {

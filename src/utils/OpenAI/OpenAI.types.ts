@@ -23,6 +23,24 @@ export interface OpenAIModel {
   maxLimit: number;
 }
 
+// Define interfaces for OpenAI API response types
+export interface OpenAIResponseItem {
+  type: string;
+  [key: string]: any;
+}
+
+export interface OpenAIContentItem {
+  type: string;
+  text?: string;
+  [key: string]: any;
+}
+
+// Define interface for messages that can include system role
+export interface OpenAIMessageWithSystemRole {
+  role: "assistant" | "user" | "system";
+  content: string;
+}
+
 export interface ProviderSubmitFunction {
   (messages?: OpenAIChatMessage[], modelIndex?: number): Promise<void>;
 }

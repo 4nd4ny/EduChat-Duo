@@ -1,4 +1,5 @@
 import React from "react";
+import { MdContentCopy } from "react-icons/md";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
@@ -181,18 +182,27 @@ export default function AssistantMessageContent({ content, ...props }: Props) {
       };
 
       return hasLang ? (
-        <SyntaxHighlighter
-          style={syntaxTheme}
-          language={hasLang[1]}
-          PreTag="div"
-          className="overflow-hidden rounded-md"
-          showLineNumbers={true}
-          wrapLines={hasMeta}
-          useInlineStyles={true}
-          lineProps={applyHighlights}
-        >
-          {props.children}
-        </SyntaxHighlighter>
+        <div className="relative group">
+          <button
+            onClick={() => navigator.clipboard.writeText(String(props.children))}
+            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-white bg-gray-800 rounded p-1"
+            title="Copier le code"
+          >
+            <MdContentCopy className="w-4 h-4" />
+          </button>
+          <SyntaxHighlighter
+            style={syntaxTheme}
+            language={hasLang[1]}
+            PreTag="div"
+            className="overflow-hidden rounded-md"
+            showLineNumbers={true}
+            wrapLines={hasMeta}
+            useInlineStyles={true}
+            lineProps={applyHighlights}
+          >
+            {props.children}
+          </SyntaxHighlighter>
+        </div>
       ) : (
         <code className={className} {...props} />
       );

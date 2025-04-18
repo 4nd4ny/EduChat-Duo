@@ -6,10 +6,15 @@ export const OpenAIChatModels: Record<string, OpenAIModel> = {
     name: "gpt-4.1", 
     maxLimit: 32768, 
   },
-  "o1-pro": { 
-    id: "o1-pro",
-    name: "o1-pro",
+  "o4-mini": { 
+    id: "o4-mini",
+    name: "o4-mini",
     maxLimit: 100000, 
+  },
+  "o3": {
+    id: "o3",
+    name: "o3",
+    maxLimit: 100000,
   },
 };
 

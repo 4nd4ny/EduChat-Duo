@@ -58,68 +58,60 @@ export default function ChatMessage({
   // Fonction pour utiliser le mode thinking (corrigée)
   const handleThinking = () => {
     if (openai.loading || anthropic.loading) return;
-    
     setShowThinkingMessage(true);
-    
-    // Récupérer tous les messages jusqu'au dernier message utilisateur
-    // Cela supprimera la dernière réponse de l'assistant
-    const activeProvider = getActiveProvider();
-
-    // Trouver le dernier message de l'utilisateur
-    let lastUserMessageIndex = activeProvider.messages.length - 1;
-    while (lastUserMessageIndex >= 0 && activeProvider.messages[lastUserMessageIndex].role !== 'user') {
-      lastUserMessageIndex--;
+    const activeProviderContext = getActiveProvider();
+    // Isoler les messages jusqu'au dernier user pour refaire la requête
+    let lastUserIndex = activeProviderContext.messages.length - 1;
+    while (lastUserIndex >= 0 && activeProviderContext.messages[lastUserIndex].role !== 'user') {
+      lastUserIndex--;
     }
-    
-    // Si aucun message utilisateur trouvé, utiliser tous les messages
-    const relevantMessages = lastUserMessageIndex >= 0 
-      ? activeProvider.messages.slice(0, lastUserMessageIndex + 1)
-      : activeProvider.messages;
-    
-    // Mettre à jour les messages pour supprimer la dernière réponse de l'assistant
-    activeProvider.setMessages(relevantMessages);
-    
-    // Préparer les données pour le mode thinking
+    const relevantMessages = lastUserIndex >= 0
+      ? activeProviderContext.messages.slice(0, lastUserIndex + 1)
+      : activeProviderContext.messages;
+    activeProviderContext.setMessages(relevantMessages);
     if (currentActiveProvider === 'openai') {
-      // Utiliser le modèle actuel avec un prompt spécifique pour la pensée réfléchie
-      const currentModel = 'o1-pro';
+      // Choix du modèle suivant l'historique de réponse
+      const assistantMsgs = openai.messages.filter(m => m.role === 'assistant');
+      let nextModel = 'o4-mini';
+      const lastAssistant = assistantMsgs[assistantMsgs.length - 1];
+      if (lastAssistant && lastAssistant.model === 'o4-mini') {
+        nextModel = 'o3';
+      }
       openai.regenerateMessage(
-        relevantMessages, 
+        relevantMessages,
         (reply) => {
-          activeProvider.setMessages(prev => [...prev, {
+          activeProviderContext.setMessages(prev => [...prev, {
             id: prev.length,
             role: 'assistant',
             content: reply,
-            model: currentModel 
+            model: nextModel
           }]);
-        }, 
-        currentModel,
+        },
+        nextModel,
         true
       );
     } else {
-      // Utiliser Claude avec le mode thinking
+      // Mode reflection pour Claude (inchangé)
       const currentModel = 'claude-3-7-sonnet-latest';
       anthropic.regenerateMessage(
-        relevantMessages, 
+        relevantMessages,
         (reply) => {
-          activeProvider.setMessages(prev => [...prev, {
+          activeProviderContext.setMessages(prev => [...prev, {
             id: prev.length,
             role: 'assistant',
             content: reply,
-            model: currentModel + '-thinking' // Marquer comme une réponse "thinking"
+            model: currentModel + '-thinking'
           }]);
-        }, 
+        },
         currentModel,
         true
       );
     }
-    
+    // Reset message and focus fallback
     setTimeout(() => setShowThinkingMessage(false), 1000);
-    
-    // Remettre le focus sur le champ d'input
     setTimeout(() => {
-      const inputField = document.querySelector('textarea[name="query"]') as HTMLTextAreaElement;
-      if (inputField) inputField.focus();
+      const input = document.querySelector('textarea[name="query"]') as HTMLTextAreaElement;
+      if (input) input.focus();
     }, 100);
   };
 

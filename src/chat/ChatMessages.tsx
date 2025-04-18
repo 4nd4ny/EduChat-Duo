@@ -49,6 +49,18 @@ export default function ChatMessages() {
     }
   }, [messages, activeProvider]);
 
+  // Lors du changement de modèle, générer la réponse manquante si nécessaire
+  useEffect(() => {
+    // Si on bascule sur Claude et qu'il manque une réponse Claude
+    if (activeProvider === 'anthropic' && anthropic.messages.length < openai.messages.length) {
+      anthropic.submit(anthropic.messages);
+    }
+    // Si on bascule sur ChatGPT et qu'il manque une réponse ChatGPT
+    if (activeProvider === 'openai' && openai.messages.length < anthropic.messages.length) {
+      openai.submit(openai.messages);
+    }
+  }, [activeProvider]);
+
   // Auto-scroll
   useEffect(() => {
     if (!scrolling) {

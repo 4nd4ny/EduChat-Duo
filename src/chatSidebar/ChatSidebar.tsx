@@ -11,18 +11,18 @@ import ModelSelector from "./ModelSelector"; // Importer le nouveau composant
 type Props = {};
 
 export default function ChatSidebar({}: Props) {
-  const { resetConversation, clearConversations, importConversation } = useOpenAI();
+  const openai = useOpenAI();
   const anthropic = useAnthropic();
 
   const handleNewChat = (e: React.MouseEvent) => {
     e.preventDefault();
     // Réinitialiser les deux providers
-    resetConversation();
+    openai.resetConversation();
     anthropic.resetConversation();
   }; 
 
   const handleClearConversations = () => {
-    clearConversations();
+    openai.clearConversations();
     anthropic.clearConversations();
   };
 
@@ -35,7 +35,7 @@ export default function ChatSidebar({}: Props) {
         const fileContent = reader.result as string;
         try {
           const jsonData = JSON.parse(fileContent);
-          importConversation(jsonData);
+          openai.importConversation(jsonData);
           anthropic.importConversation(jsonData); // Importer aussi pour Anthropic
         } catch (error) {
           console.error('Error parsing JSON:', error);
@@ -44,7 +44,7 @@ export default function ChatSidebar({}: Props) {
       };
       reader.readAsText(file);
     });
-  }, [importConversation, anthropic]);
+  }, [openai, anthropic]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop,

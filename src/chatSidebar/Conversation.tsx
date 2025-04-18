@@ -1,5 +1,6 @@
 import Link from "next/link";
 import React, { useEffect } from "react";
+import { useAIProvider } from "../context/AIProviderManager";
 import {
   MdChatBubbleOutline,
   MdCheck,
@@ -27,7 +28,9 @@ const getMessageContent = (content: string | { reply: string; tokenUsage: number
 };
 
 export default function Conversation({ id, conversation, active }: Props) {
-  const { updateConversationName, deleteConversation } = useOpenAI();
+  const { updateConversationName, deleteConversation: deleteOpenAIConversation } = useOpenAI();
+  const { deleteConversation: deleteAnthropicConversation } = useAnthropic();
+  const { activeProvider } = useAIProvider();
   const [editing, setEditing] = React.useState(false);
 
   // Fonction pour obtenir le nom initial
@@ -67,7 +70,9 @@ export default function Conversation({ id, conversation, active }: Props) {
   };
 
   const handleDelete = () => {
-    deleteConversation(id);
+    // Delete conversation in both providers to keep in sync
+    deleteOpenAIConversation(id);
+    deleteAnthropicConversation(id);
   };
 
   const handleDownload = () => {

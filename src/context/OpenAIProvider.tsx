@@ -10,7 +10,8 @@ import {
 } from "./History";
 import {
   OpenAIChatMessage,
-  OpenAIChatModels,
+  OpenAIChatModels, 
+  ProviderSubmitFunction,
 } from "../utils/OpenAI";
 import {
   OpenAIApiKey,
@@ -20,10 +21,11 @@ import React, {
   useCallback, 
   useEffect,
 } from "react";
+import { useAIProvider } from "./AIProviderManager";
 import { useRouter } from "next/router";
+import { sanitizeString } from "../utils/sanitize";
 
 const CHAT_ROUTE = "/";
-// This is just the context declaration part that needs to be updated in OpenAIProvider.tsx
 
 const defaultContext = {
   loading: false,
@@ -120,10 +122,19 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
     return Math.ceil(estimatedTokens);
   }
   function updateInputTokens(text: string) {
+    /*
+      // Use tiktoken to better count tokens
+      const { encoding_for_model } = require("tiktoken");
+      async function countTokens(text, model = "gpt-3.5-turbo") {
+        const encoder = await encoding_for_model(model); // Chargement de l'encodeur basé sur le modèle
+        const tokens = encoder.encode(text); // Tokenisation du texte
+        return tokens.length;
+      }
+    */
     updateTokenCount(estimateFrenchTokens(text)); 
   }
   
-  const submit = useCallback(
+  const submit: ProviderSubmitFunction = useCallback(
     async (messages_: OpenAIChatMessage[] = [], modelIndex: number = 0) => {
       
       if (loading) return; // Si déjà en cours, on ne fait rien
@@ -441,6 +452,7 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
       }
 
       // 3. Sanitisation des données
+      /*
       const sanitizedConversation: Conversation = {
         name: jsonData.name, // Limiter à 100 caractères
         createdAt: Number(jsonData.createdAt) || Date.now(),
@@ -449,6 +461,23 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
           id: index,
           role: msg.role === "assistant" || msg.role === "user" ? msg.role : "user",
           content: msg.content, // Limiter à 10000 caractères
+          model: msg.model
+        }))
+      };
+      */
+      const sanitizedConversation: Conversation = {
+        name: sanitizeString(jsonData.name, 100),
+        createdAt: Number(jsonData.createdAt) || Date.now(),
+        lastMessage: Number(jsonData.lastMessage) || Date.now(),
+        messages: jsonData.messages.map((msg: any, index: number) => ({
+          id: index,
+          role: msg.role === "assistant" || msg.role === "user" ? msg.role : "user",
+          content: typeof msg.content === 'string' 
+            ? sanitizeString(msg.content, 10000) 
+            : { 
+                reply: sanitizeString(typeof msg.content.reply === 'string' ? msg.content.reply : '', 10000), 
+                tokenUsage: Number(msg.content.tokenUsage) || 0 
+              },
           model: msg.model
         }))
       };
@@ -549,10 +578,23 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
 
   // Conversations
   const [conversations, setConversations] = React.useState<History>({} as History);
+  
+  const { registerOpenAIData } = useAIProvider();
 
   // Load conversation from local storage
   useEffect(() => {
     setConversations(getHistory());
+  }, []);
+
+  useEffect(() => {
+    // Enregistrer les données pour la synchronisation
+    registerOpenAIData({
+      messages,
+      conversationId,
+      conversationName,
+      setMessages,
+      updateConversationName,
+    });
   }, []);
 
   const clearConversations = useCallback(() => {
@@ -567,14 +609,14 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
 
   const [error] = React.useState("");
 
-  const value = React.useMemo(
+ const value = React.useMemo(
     () => ({
       loading,
       
       messages,
       setMessages,
       submit,
-      regenerateMessage,
+      regenerateMessage, 
       addMessage,
       updateMessageContent,
       removeMessage,
@@ -602,10 +644,13 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
       messages,
       setMessages,
       submit,
-      regenerateMessage,
+      regenerateMessage, 
       addMessage,
 
       conversationId,
+      conversationName,
+      registerOpenAIData,
+      updateConversationName,
       importConversation,
       deleteMessagesFromIndex,
       resetConversation,

@@ -10,7 +10,8 @@ import {
 } from "./History";
 import {
   AnthropicChatMessage,
-  AnthropicChatModels,  ProviderSubmitFunction,
+  AnthropicChatModels,  
+  ProviderSubmitFunction,
 } from "../utils/Anthropic";
 import {
   AnthropicApiKey,
@@ -20,7 +21,9 @@ import React, {
   useCallback, 
   useEffect,
 } from "react";
+import { useAIProvider } from "./AIProviderManager";
 import { useRouter } from "next/router";
+import { sanitizeString } from "../utils/sanitize";
 
 const CHAT_ROUTE = "/";
 
@@ -58,7 +61,7 @@ const AnthropicContext = React.createContext<{
 
   messages: AnthropicChatMessage[];
   setMessages: React.Dispatch<React.SetStateAction<AnthropicChatMessage[]>>;
-  submit: () => void;
+  submit: ProviderSubmitFunction;
   regenerateMessage: (messages?: AnthropicChatMessage[], onSuccess?: (reply: string) => void, modelOverride?: string, useThinking?: boolean) => void; // Updated
   addMessage: (
     content?: string,
@@ -196,7 +199,7 @@ export default function AnthropicProvider({ children }: PropsWithChildren) {
 
       setLoading(false); // Déverrouille le bouton submit
     },
-    [messages, loading]
+    [messages, loading, modelList]
   );
   
   // Fonction modifiée pour prendre en charge le mode thinking
@@ -359,7 +362,7 @@ export default function AnthropicProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     handleStoreConversation();
-  }, [messages]);
+  }, [messages, handleStoreConversation]);
 
   const generateTitle = useCallback(async () => {
     if (!messages?.length || !messages[0]?.content) {
@@ -446,6 +449,7 @@ export default function AnthropicProvider({ children }: PropsWithChildren) {
       }
 
       // 3. Sanitisation des données
+      /*
       const sanitizedConversation: Conversation = {
         name: jsonData.name, // Limiter à 100 caractères
         createdAt: Number(jsonData.createdAt) || Date.now(),
@@ -454,6 +458,23 @@ export default function AnthropicProvider({ children }: PropsWithChildren) {
           id: index,
           role: msg.role === "assistant" || msg.role === "user" ? msg.role : "user",
           content: msg.content, // Limiter à 10000 caractères
+          model: msg.model
+        }))
+      };
+      */
+      const sanitizedConversation: Conversation = {
+        name: sanitizeString(jsonData.name, 100),
+        createdAt: Number(jsonData.createdAt) || Date.now(),
+        lastMessage: Number(jsonData.lastMessage) || Date.now(),
+        messages: jsonData.messages.map((msg: any, index: number) => ({
+          id: index,
+          role: msg.role === "assistant" || msg.role === "user" ? msg.role : "user",
+          content: typeof msg.content === 'string' 
+            ? sanitizeString(msg.content, 10000) 
+            : { 
+                reply: sanitizeString(typeof msg.content.reply === 'string' ? msg.content.reply : '', 10000), 
+                tokenUsage: Number(msg.content.tokenUsage) || 0 
+              },
           model: msg.model
         }))
       };
@@ -495,22 +516,6 @@ export default function AnthropicProvider({ children }: PropsWithChildren) {
         (typeof msg.content === 'string' || (typeof msg.content === 'object' && typeof msg.content.reply === 'string'))
       )
     );
-  }
-
-  function sanitizeString(str: string, maxLength: number): string {
-    // Échapper les caractères HTML et limiter la longueur
-    return str
-      .replace(/[&<>"']/g, (char) => {
-        const entities: { [key: string]: string } = {
-          '&': '&amp;',
-          '<': '&lt;',
-          '>': '&gt;',
-          '"': '&quot;',
-          "'": '&#39;'
-        };
-        return entities[char];
-      })
-      .slice(0, maxLength);
   }
 
   function isValidModel(model: any): model is keyof typeof AnthropicChatModels {
@@ -571,9 +576,22 @@ export default function AnthropicProvider({ children }: PropsWithChildren) {
   // Conversations
   const [conversations, setConversations] = React.useState<History>({} as History);
 
+  const { registerAnthropicData } = useAIProvider();
+
   // Load conversation from local storage
   useEffect(() => {
     setConversations(getHistory());
+  }, []);
+
+  useEffect(() => {
+    // Enregistrer les données pour la synchronisation
+    registerAnthropicData({
+      messages,
+      conversationId,
+      conversationName,
+      setMessages,
+      updateConversationName,
+    });
   }, []);
 
   const clearConversations = useCallback(() => {
@@ -584,7 +602,7 @@ export default function AnthropicProvider({ children }: PropsWithChildren) {
     setConversations({});
 
     router.push("/");
-  }, []);
+  }, [router]);
 
   const [error] = React.useState("");
 
@@ -627,6 +645,9 @@ export default function AnthropicProvider({ children }: PropsWithChildren) {
       addMessage,
 
       conversationId,
+      conversationName,
+      registerAnthropicData,
+      updateConversationName,
       importConversation,
       deleteMessagesFromIndex,
       resetConversation,

@@ -1,4 +1,5 @@
 import React from "react";
+import { useAIProvider } from "../context/AIProviderManager";
 import { useOpenAI } from "../context/OpenAIProvider";
 import { useAnthropic } from "../context/AnthropicProvider";
 import Conversation from "./Conversation";
@@ -6,7 +7,11 @@ import Conversation from "./Conversation";
 type Props = {};
 
 export default function Conversations({}: Props) {
-  const { conversations, conversationId } = useOpenAI();
+  const { activeProvider } = useAIProvider();
+  const openai = useOpenAI();
+  const anthropic = useAnthropic();
+  const { conversations, conversationId } =
+    activeProvider === 'openai' ? openai : anthropic;
   return (
     <div className="flex-1 overflow-y-auto py-2 scrollbar-none">
       <div className="flex flex-col gap-y-2">
