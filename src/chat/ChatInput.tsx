@@ -2,10 +2,14 @@ import React, { useRef, useState, useCallback, useEffect, ChangeEvent } from "re
 import { useOpenAI } from "../context/OpenAIProvider";
 import { useAnthropic } from "../context/AnthropicProvider";
 import { useAIProvider } from "../context/AIProviderManager";
+import { wrapIcon } from "../utils/Icon";
+import { MdSend as RawMdSend } from "react-icons/md";
 
 type Props = {};
 
 export default function ChatInput({}: Props) {
+  // Wrapped send icon
+  const MdSend = wrapIcon(RawMdSend);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState("");
   const openai = useOpenAI();
@@ -37,22 +41,15 @@ export default function ChatInput({}: Props) {
     if (loading) return;
     e.preventDefault();
     if (input.trim()) {
-      // Synchroniser les messages avant d'ajouter un nouveau message
-      syncProviders();
-      
-      // Ajouter le message au fournisseur actif
-      currentProvider.addMessage(input, true, "user");
-      
-      // Synchroniser avec l'autre fournisseur pour maintenir la cohérence
-      const newMessage = {
-        id: otherProvider.messages.length,
-        role: "user" as const,
-        content: input,
-      };
-      otherProvider.setMessages([...otherProvider.messages, newMessage]);
-      
-      setInput("");
-      
+      // En dual mode, envoyer le même message aux deux providers
+      if (activeProvider === 'both') {
+        anthropic.addMessage(input, true, 'user');
+        openai.addMessage(input, true, 'user');
+      } else {
+        // Mode simple
+        currentProvider.addMessage(input, true, 'user');
+      }
+      setInput('');
       // Maintenir le focus après soumission
       setTimeout(maintainFocus, 100);
     }
@@ -178,7 +175,17 @@ export default function ChatInput({}: Props) {
   }, [input, textAreaRef]);
 
   // Afficher l'indication du modèle actif
-  const getActiveModelName = () => activeProvider === 'openai' ? 'ChatGPT' : 'Claude';
+  let activeModelName;
+  if (activeProvider === 'openai') {
+    activeModelName = 'OpenAI GPT-4.1 O4-mini O3';
+  } else if (activeProvider === 'anthropic') {
+    activeModelName = 'Anthropic Claude 3.7';
+  } else if (activeProvider === 'both') {
+    activeModelName = 'Dual mode'; // Ou le texte que vous souhaitez afficher
+  } else {
+    // Optionnel : un cas par défaut si activeProvider n'est aucune des valeurs attendues
+    activeModelName = 'Aucun agent sélectionné';
+  }
 
   // Fonction pour gérer l'événement de changement de provider
   useEffect(() => {
@@ -212,14 +219,14 @@ export default function ChatInput({}: Props) {
   }, [maintainFocus]);
 
   return (
-    <div className="fixed bottom-0 flex flex-grow h-40 w-full bg-gradient-to-t from-[rgb(var(--bg-secondary))] to-transparent md:w-[calc(100%-320px)]">
+    <div className="fixed bottom-0 flex flex-grow h-40 w-full bg-gradient-to-t from-[rgb(var(--bg-secondary))] to-transparent md:w-[calc(100%-330px)]">
       <form
         className="mx-auto flex flex-grow h-full w-full items-end justify-center p-4 pb-10"
         onSubmit={handleSubmit}
       >
         <div className="relative flex flex-grow w-full flex-row rounded border border-stone-500/20 bg-tertiary shadow-xl">
           <div className="absolute -top-6 left-4 text-xs text-gray-400">
-            Modèle actif: {getActiveModelName()}
+            Modèle actif: {activeModelName}
           </div>
           <textarea
             name="query"
@@ -241,19 +248,7 @@ export default function ChatInput({}: Props) {
             {loading ? (
               <div className="mx-auto h-5 w-5 animate-spin rounded-full border-b-2 border-white" />
             ) : (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-5 h-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-              </svg>
+              <MdSend className="w-5 h-5" />
             )}
           </button>
         </div>

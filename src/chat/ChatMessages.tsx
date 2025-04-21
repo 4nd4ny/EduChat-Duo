@@ -8,7 +8,7 @@ import { useAnthropic } from "../context/AnthropicProvider";
 
 /**
  * ChatMessages component supports two modes:
- * - 'both': dual mode, pairs of messages (user full width, assistants side-by-side)
+ * - 'both': dual mode, interleaved messages -> even indexes are user, odd are assistant
  * - simple: single column for active provider
  */
 export default function ChatMessages() {
@@ -18,57 +18,68 @@ export default function ChatMessages() {
 
   // Dual mode: even index = user messages (full width), odd index = assistant responses side-by-side
   if (activeProvider === 'both') {
-    const anthroMsgs = anthropic.messages;
-    const openaiMsgs = openai.messages;
+    const uMsgs = anthropic.messages;
+    const gMsgs = openai.messages;
+    const length = Math.max(uMsgs.length, gMsgs.length);
     return (
-      <div className="flex h-full w-full flex-col items-stretch bg-tertiary md:pl-[320px]">
+      <div className="flex h-full w-full flex-col items-stretch md:pl-[320px] bg-tertiary">
         <div
-          className="relative flex-1 flex-col items-stretch overflow-auto border-b bg-tertiary pb-[10rem] scrollbar scrollbar-w-3 scrollbar-thumb-[rgb(var(--bg-primary))] scrollbar-track-[rgb(var(--bg-secondary))] scrollbar-thumb-rounded-full px-4 py-2"
+          className="relative flex-1 flex-col items-stretch overflow-auto border-b bg-tertiary pb-[10rem]
+                     scrollbar scrollbar-w-3 scrollbar-thumb-[rgb(var(--bg-primary))]
+                     scrollbar-track-[rgb(var(--bg-secondary))] scrollbar-thumb-rounded-full
+                     px-4 py-2 z-10"
         >
-          {anthroMsgs.map((msg, idx) =>
+          {Array.from({ length }).map((_, idx) =>
+            // user message (even index)
             idx % 2 === 0 ? (
-              // User message spans full width
               <div key={`user-${idx}`} className="mb-2">
                 <ChatMessage
-                  message={msg}
+                  message={uMsgs[idx] || gMsgs[idx]}
                   isInitialUserMessage={idx === 0}
                   isLastAssistantMessage={false}
                   messageIndex={idx}
                 />
               </div>
             ) : (
-              // Assistant messages side by side
+              // assistant responses side by side
               <div key={`assist-${idx}`} className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
-                <ChatMessage
-                  message={anthroMsgs[idx]}
-                  isInitialUserMessage={false}
-                  isLastAssistantMessage={idx === anthroMsgs.length - 1}
-                  messageIndex={idx}
-                />
-                <ChatMessage
-                  message={openaiMsgs[idx]}
-                  isInitialUserMessage={false}
-                  isLastAssistantMessage={idx === openaiMsgs.length - 1}
-                  messageIndex={idx}
-                />
+                {uMsgs[idx] && (
+                  <ChatMessage
+                    message={uMsgs[idx]}
+                    isInitialUserMessage={false}
+                    isLastAssistantMessage={idx === uMsgs.length - 1}
+                    messageIndex={idx}
+                  />
+                )}
+                {gMsgs[idx] && (
+                  <ChatMessage
+                    message={gMsgs[idx]}
+                    isInitialUserMessage={false}
+                    isLastAssistantMessage={idx === gMsgs.length - 1}
+                    messageIndex={idx}
+                  />
+                )}
               </div>
             )
           )}
         </div>
         {/* Shared input */}
-        <div className="p-2 border-t border-white/20">
+        <div className="p-2 border-t border-white/20 bg-tertiary z-10">
           <ChatInput />
         </div>
       </div>
     );
   }
 
-  // Simple mode: single provider messages in one column
+  // Simple mode: single provider messages
   const msgs = activeProvider === 'openai' ? openai.messages : anthropic.messages;
   return (
-    <div className="flex h-full w-full flex-col items-stretch md:pl-[320px]">
+    <div className="flex h-full w-full flex-col items-stretch md:pl-[320px] bg-tertiary">
       <div
-        className="relative flex-1 flex-col items-stretch overflow-auto border-b bg-tertiary pb-[10rem] scrollbar scrollbar-w-3 scrollbar-thumb-[rgb(var(--bg-primary))] scrollbar-track-[rgb(var(--bg-secondary))] scrollbar-thumb-rounded-full px-4 py-2"
+        className="relative flex-1 flex-col items-stretch overflow-auto border-b bg-tertiary pb-[10rem]
+                   scrollbar scrollbar-w-3 scrollbar-thumb-[rgb(var(--bg-primary))]
+                   scrollbar-track-[rgb(var(--bg-secondary))] scrollbar-thumb-rounded-full
+                   px-4 py-2 z-10"
       >
         {msgs.length === 0 ? (
           <ChatPlaceholder />
@@ -85,7 +96,7 @@ export default function ChatMessages() {
           ))
         )}
       </div>
-      <div className="p-2 border-t border-white/20">
+      <div className="p-2 border-t border-white/20 bg-tertiary z-10">
         <ChatInput />
       </div>
     </div>
