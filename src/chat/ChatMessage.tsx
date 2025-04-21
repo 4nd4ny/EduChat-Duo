@@ -1,7 +1,25 @@
 import React, { useEffect, useState } from "react";
-import { MdPerson, MdSmartToy, MdContentCopy, MdAutorenew, MdDeleteSweep, MdPsychology } from "react-icons/md";
+import { wrapIcon } from "../utils/Icon";
+import {
+  MdPerson as RawMdPerson,
+  MdContentCopy as RawMdContentCopy,
+  MdAutorenew as RawMdAutorenew,
+  MdDeleteSweep as RawMdDeleteSweep,
+  MdPsychology as RawMdPsychology,
+} from "react-icons/md";
+import { BsRobot as RawBsRobot } from "react-icons/bs";
+import { RiRobot2Line as RawRiRobot2Line } from "react-icons/ri";
 import AssistantMessageContent from "./AssistantMessageContent";
 import UserMessageContent from "./UserMessageContent";
+
+// Wrapped icons to ensure valid ReactElement return types
+const MdPerson = wrapIcon(RawMdPerson);
+const MdContentCopy = wrapIcon(RawMdContentCopy);
+const MdAutorenew = wrapIcon(RawMdAutorenew);
+const MdDeleteSweep = wrapIcon(RawMdDeleteSweep);
+const MdPsychology = wrapIcon(RawMdPsychology);
+const BsRobot = wrapIcon(RawBsRobot);
+const RiRobot2Line = wrapIcon(RawRiRobot2Line);
 import { useAIProvider } from "../context/AIProviderManager";
 import { useOpenAI } from "../context/OpenAIProvider";
 import { useAnthropic } from "../context/AnthropicProvider";
@@ -11,13 +29,15 @@ type Props = {
   isInitialUserMessage: boolean;
   isLastAssistantMessage: boolean;
   messageIndex: number; 
+  disableControls?: boolean;
 };
 
 export default function ChatMessage({ 
   message: { role, content, model }, 
   isInitialUserMessage, 
   isLastAssistantMessage,
-  messageIndex 
+  messageIndex,
+  disableControls = false
 }: Props) {
   const [hover, setHover] = React.useState(false);
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
@@ -35,10 +55,30 @@ export default function ChatMessage({
   const openai = useOpenAI();
   const anthropic = useAnthropic();
   
-  // Détermine le provider basé sur le contexte actuel
-  const getActiveProvider = () => currentActiveProvider === 'openai' ? openai : anthropic;
-  const getAlternativeProvider = () => currentActiveProvider === 'openai' ? anthropic : openai;
-  const getActiveProviderName = () => currentActiveProvider === 'openai' ? 'ChatGPT' : 'Claude';
+  // Détermine le provider en fonction du modèle lorsqu'on est en mode dual
+  const providerFromModel = isOpenAIModel(model) ? 'openai' : 'anthropic';
+
+  // Helper pour récupérer le provider actif selon le contexte ou le modèle si mode 'both'
+  const getActiveProvider = () => {
+    if (currentActiveProvider === 'both') {
+      return providerFromModel === 'openai' ? openai : anthropic;
+    }
+    return currentActiveProvider === 'openai' ? openai : anthropic;
+  };
+
+  const getAlternativeProvider = () => {
+    if (currentActiveProvider === 'both') {
+      return providerFromModel === 'openai' ? anthropic : openai;
+    }
+    return currentActiveProvider === 'openai' ? anthropic : openai;
+  };
+
+  const getActiveProviderName = () => {
+    if (currentActiveProvider === 'both') {
+      return providerFromModel === 'openai' ? 'ChatGPT' : 'Claude';
+    }
+    return currentActiveProvider === 'openai' ? 'ChatGPT' : 'Claude';
+  };
   const getAlternativeProviderName = () => currentActiveProvider === 'openai' ? 'Claude' : 'ChatGPT';
 
   useEffect(() => {
@@ -55,59 +95,54 @@ export default function ChatMessage({
     setTimeout(() => setShowCopiedMessage(false), 2000);
   };
   
-  // Fonction pour utiliser le mode thinking (corrigée)
   const handleThinking = () => {
     if (openai.loading || anthropic.loading) return;
     setShowThinkingMessage(true);
     const activeProviderContext = getActiveProvider();
-    // Isoler les messages jusqu'au dernier user pour refaire la requête
+
+    // Trouver le dernier message de l'utilisateur
     let lastUserIndex = activeProviderContext.messages.length - 1;
     while (lastUserIndex >= 0 && activeProviderContext.messages[lastUserIndex].role !== 'user') {
       lastUserIndex--;
     }
-    const relevantMessages = lastUserIndex >= 0
-      ? activeProviderContext.messages.slice(0, lastUserIndex + 1)
-      : activeProviderContext.messages;
-    activeProviderContext.setMessages(relevantMessages);
-    if (currentActiveProvider === 'openai') {
-      // Choix du modèle suivant l'historique de réponse
+    
+    if (lastUserIndex < 0) {
+      // Aucun message utilisateur trouvé
+      setShowThinkingMessage(false);
+      return;
+    }
+    
+    // Récupérer les messages jusqu'au dernier message utilisateur
+    const relevantMessages = activeProviderContext.messages.slice(0, lastUserIndex + 1);
+    
+    // Choix du modèle
+    let nextModel = providerFromModel === 'openai' ? 'o4-mini' : 'claude-3-7-sonnet-latest';
+    if (providerFromModel === 'openai') {
       const assistantMsgs = openai.messages.filter(m => m.role === 'assistant');
-      let nextModel = 'o4-mini';
-      const lastAssistant = assistantMsgs[assistantMsgs.length - 1];
-      if (lastAssistant && lastAssistant.model === 'o4-mini') {
+      if (assistantMsgs.length > 0 && assistantMsgs[assistantMsgs.length - 1].model === 'o4-mini') {
         nextModel = 'o3';
       }
-      openai.regenerateMessage(
-        relevantMessages,
-        (reply) => {
-          activeProviderContext.setMessages(prev => [...prev, {
-            id: prev.length,
-            role: 'assistant',
-            content: reply,
-            model: nextModel
-          }]);
-        },
-        nextModel,
-        true
-      );
-    } else {
-      // Mode reflection pour Claude (inchangé)
-      const currentModel = 'claude-3-7-sonnet-latest';
-      anthropic.regenerateMessage(
-        relevantMessages,
-        (reply) => {
-          activeProviderContext.setMessages(prev => [...prev, {
-            id: prev.length,
-            role: 'assistant',
-            content: reply,
-            model: currentModel + '-thinking'
-          }]);
-        },
-        currentModel,
-        true
-      );
     }
-    // Reset message and focus fallback
+    
+    // Régénérer le message avec le provider actif
+    activeProviderContext.regenerateMessage(
+      relevantMessages,
+      (reply) => {
+        // Remplacer tous les messages après le dernier message utilisateur par cette nouvelle réponse
+        activeProviderContext.setMessages(prev => [
+          ...prev.slice(0, lastUserIndex + 1),
+          {
+            id: lastUserIndex + 1,
+            role: 'assistant',
+            content: reply,
+            model: nextModel + (providerFromModel === 'anthropic' ? '-thinking' : '')
+          }
+        ]);
+      },
+      nextModel,
+      true
+    );
+    
     setTimeout(() => setShowThinkingMessage(false), 1000);
     setTimeout(() => {
       const input = document.querySelector('textarea[name="query"]') as HTMLTextAreaElement;
@@ -115,7 +150,7 @@ export default function ChatMessage({
     }, 100);
   };
 
-  // Fonction pour régénérer la réponse avec le même modèle (corrigée)
+  // Fonction similaire pour handleRefreshAnswer
   const handleRefreshAnswer = () => {
     if (openai.loading || anthropic.loading) return;
     
@@ -123,38 +158,37 @@ export default function ChatMessage({
     
     // Trouver le dernier message de l'utilisateur
     const activeProvider = getActiveProvider();
-    let currentModel = '';
-    if (currentActiveProvider === 'openai') {
-      currentModel = 'gpt-4.1';
-    } else {
-      currentModel = 'claude-3-7-sonnet-latest';
-    }
+    let currentModel = providerFromModel === 'openai' ? 'gpt-4.1' : 'claude-3-7-sonnet-latest';
 
     // Trouver le dernier message de l'utilisateur
-    let lastUserMessageIndex = activeProvider.messages.length - 1;
-    while (lastUserMessageIndex >= 0 && activeProvider.messages[lastUserMessageIndex].role !== 'user') {
-      lastUserMessageIndex--;
+    let lastUserIndex = activeProvider.messages.length - 1;
+    while (lastUserIndex >= 0 && activeProvider.messages[lastUserIndex].role !== 'user') {
+      lastUserIndex--;
     }
     
-    // Si aucun message utilisateur trouvé, utiliser tous les messages sauf le dernier
-    const relevantMessages = lastUserMessageIndex >= 0 
-      ? activeProvider.messages.slice(0, lastUserMessageIndex + 1)
-      : activeProvider.messages.slice(0, -1);
+    if (lastUserIndex < 0) {
+      // Aucun message utilisateur trouvé
+      setShowSwitchMessage(false);
+      return;
+    }
     
-    // Mettre à jour l'état du provider actuellement actif
-    activeProvider.setMessages(relevantMessages);
+    // Récupérer les messages jusqu'au dernier message utilisateur
+    const relevantMessages = activeProvider.messages.slice(0, lastUserIndex + 1);
     
-    // Puis régénérer une réponse avec le même provider
+    // Régénérer une réponse avec la même provider
     activeProvider.regenerateMessage(
       relevantMessages, 
       (reply) => {
-        // Ajouter la nouvelle réponse
-        activeProvider.setMessages(prev => [...prev, {
-          id: prev.length,
-          role: 'assistant',
-          content: reply,
-          model: currentModel // Conserve le même modèle pour le refresh
-        }]);
+        // Remplacer tous les messages après le dernier message utilisateur
+        activeProvider.setMessages(prev => [
+          ...prev.slice(0, lastUserIndex + 1),
+          {
+            id: lastUserIndex + 1,
+            role: 'assistant',
+            content: reply,
+            model: currentModel
+          }
+        ]);
       }, 
       currentModel,
       false
@@ -162,7 +196,6 @@ export default function ChatMessage({
     
     setTimeout(() => setShowSwitchMessage(false), 1000);
     
-    // Remettre le focus sur le champ d'input
     setTimeout(() => {
       const inputField = document.querySelector('textarea[name="query"]') as HTMLTextAreaElement;
       if (inputField) inputField.focus();
@@ -173,7 +206,11 @@ export default function ChatMessage({
     setShowDeleteMessage(true);
     setTimeout(() => {
       setShowDeleteMessage(false);
-      getActiveProvider().deleteMessagesFromIndex(messageIndex);
+      const activeCtx = getActiveProvider();
+      activeCtx.deleteMessagesFromIndex(messageIndex);
+      if (currentActiveProvider === 'both') {
+        getAlternativeProvider().deleteMessagesFromIndex(messageIndex);
+      }
       
       // Remettre le focus sur le champ d'input
       const inputField = document.querySelector('textarea[name="query"]') as HTMLTextAreaElement;
@@ -203,7 +240,11 @@ export default function ChatMessage({
             hover ? "text-stone-300" : "text-primary/20"
           }`}
         >
-          {role === "user" ? <MdPerson /> : <MdSmartToy />}
+          {role === "user" ? (
+            <MdPerson />
+          ) : (
+            isOpenAIModel(model) ? <BsRobot /> : <RiRobot2Line />
+          )}
         </div>
         <div className="overflow-x-auto">
           {role === 'assistant' && model && (
@@ -269,10 +310,10 @@ export default function ChatMessage({
                 >
                   <MdContentCopy className="text-2xl" />
                 </div>
-                {isLastAssistantMessage && (
+                {isLastAssistantMessage && !disableControls && (
                   <>
                     <div
-                      className={`cursor-pointer text-gray-500 transition-colors transition-transform transform hover:scale-110 hover:bg-green-600 hover:text-white rounded-full flex items-center justify-center w-12 h-12`}
+                      className={`cursor-pointer text-gray-500 transition-colors transition-transform transform hover:scale-110 hover:bg-[#ac1e44] hover:text-white rounded-full flex items-center justify-center w-12 h-12`}
                       onClick={handleThinking}
                       title={`Regénérer la réponse avec le mode réflexion`}
                     >
