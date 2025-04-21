@@ -41,6 +41,8 @@ export default function ChatInput({}: Props) {
     if (loading) return;
     e.preventDefault();
     if (input.trim()) {
+      // Synchroniser les providers avant envoi
+      syncProviders();
       // En dual mode, envoyer le même message aux deux providers
       if (activeProvider === 'both') {
         anthropic.addMessage(input, true, 'user');
@@ -219,7 +221,7 @@ export default function ChatInput({}: Props) {
   }, [maintainFocus]);
 
   return (
-    <div className="fixed bottom-0 flex flex-grow h-40 w-full bg-gradient-to-t from-[rgb(var(--bg-secondary))] to-transparent md:w-[calc(100%-330px)]">
+    <div className="fixed bottom-0 flex flex-grow h-40 w-full bg-gradient-to-t from-[rgb(var(--bg-secondary))] to-transparent md:w-[calc(100%-320px)]">
       <form
         className="mx-auto flex flex-grow h-full w-full items-end justify-center p-4 pb-10"
         onSubmit={handleSubmit}
