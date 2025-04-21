@@ -1,7 +1,10 @@
 import React from "react";
 import { NextPage } from "next";
-import { TbHome } from "react-icons/tb";
+import { wrapIcon } from "../utils/Icon";
+import { TbHome as RawTbHome } from "react-icons/tb";
 
+// Wrapped home icon to ensure valid ReactElement return type
+const TbHome = wrapIcon(RawTbHome);
 const rgpd: NextPage = () => {
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
