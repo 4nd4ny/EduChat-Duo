@@ -2,7 +2,6 @@ import React, { useRef, useState, useCallback, useEffect, ChangeEvent } from "re
 import { useOpenAI } from "../context/OpenAIProvider";
 import { useAnthropic } from "../context/AnthropicProvider";
 import { useAIProvider } from "../context/AIProviderManager";
-import { MdSend } from "react-icons/md";
 
 type Props = {};
 
@@ -181,6 +180,24 @@ export default function ChatInput({}: Props) {
   // Afficher l'indication du modèle actif
   const getActiveModelName = () => activeProvider === 'openai' ? 'ChatGPT' : 'Claude';
 
+  // Fonction pour gérer l'événement de changement de provider
+  useEffect(() => {
+    const handleProviderChange = (event: CustomEvent) => {
+      if (event.detail && event.detail.provider) {
+        // Forcer une mise à jour du composant pour afficher le nouveau provider
+        setInput(current => current + ''); // Astuce pour forcer un re-render
+      }
+    };
+
+    // Ajouter l'écouteur d'événement
+    document.addEventListener('activeProviderChanged', handleProviderChange as EventListener);
+    
+    // Nettoyer l'écouteur d'événement
+    return () => {
+      document.removeEventListener('activeProviderChanged', handleProviderChange as EventListener);
+    };
+  }, []);
+
   // Assurer que le focus est placé sur le textarea au chargement de la page
   useEffect(() => {
     maintainFocus();
@@ -224,7 +241,19 @@ export default function ChatInput({}: Props) {
             {loading ? (
               <div className="mx-auto h-5 w-5 animate-spin rounded-full border-b-2 border-white" />
             ) : (
-              <MdSend />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
             )}
           </button>
         </div>
