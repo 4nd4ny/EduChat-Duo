@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import ChatInput from "./ChatInput";
 import ChatMessage from "./ChatMessage";
+import ChatMessageDual from "./ChatMessageDual";
 import ChatPlaceholder from "./ChatPlaceholder";
 import { useAIProvider } from "../context/AIProviderManager";
 import { useOpenAI } from "../context/OpenAIProvider";
@@ -11,7 +12,26 @@ export default function ChatMessages() {
   const openai = useOpenAI();
   const anthropic = useAnthropic();
   
-  // Utiliser les messages du fournisseur actif
+  // En mode dual, afficher côte à côte les deux historiques
+  if (activeProvider === 'both') {
+    const leftMessages = anthropic.messages;
+    const rightMessages = openai.messages;
+    const len = Math.max(leftMessages.length, rightMessages.length);
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 py-2">
+        {Array.from({ length: len }).map((_, index) => (
+          <ChatMessageDual
+            key={index}
+            leftMessage={leftMessages[index]}
+            rightMessage={rightMessages[index]}
+            messageIndex={index}
+          />
+        ))}
+        <ChatInput />
+      </div>
+    );
+  }
+  // Mode simple: un seul fournisseur actif
   const currentProvider = activeProvider === 'openai' ? openai : anthropic;
   const { messages = [] } = currentProvider;
   
