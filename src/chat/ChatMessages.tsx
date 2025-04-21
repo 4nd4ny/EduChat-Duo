@@ -21,8 +21,10 @@ export default function ChatMessages() {
     const anthroMsgs = anthropic.messages;
     const openaiMsgs = openai.messages;
     return (
-      <div className="flex flex-col h-full w-full">
-        <div className="flex-1 overflow-auto px-4 py-2">
+      <div className="flex h-full w-full flex-col items-stretch md:pl-[320px]">
+        <div
+          className="relative flex-1 flex-col items-stretch overflow-auto border-b bg-tertiary pb-[10rem] scrollbar scrollbar-w-3 scrollbar-thumb-[rgb(var(--bg-primary))] scrollbar-track-[rgb(var(--bg-secondary))] scrollbar-thumb-rounded-full px-4 py-2"
+        >
           {anthroMsgs.map((msg, idx) =>
             idx % 2 === 0 ? (
               // User message spans full width
@@ -64,8 +66,10 @@ export default function ChatMessages() {
   // Simple mode: single provider messages in one column
   const msgs = activeProvider === 'openai' ? openai.messages : anthropic.messages;
   return (
-    <div className="flex flex-col h-full w-full">
-      <div className="flex-1 overflow-auto px-4 py-2">
+    <div className="flex h-full w-full flex-col items-stretch md:pl-[320px]">
+      <div
+        className="relative flex-1 flex-col items-stretch overflow-auto border-b bg-tertiary pb-[10rem] scrollbar scrollbar-w-3 scrollbar-thumb-[rgb(var(--bg-primary))] scrollbar-track-[rgb(var(--bg-secondary))] scrollbar-thumb-rounded-full px-4 py-2"
+      >
         {msgs.length === 0 ? (
           <ChatPlaceholder />
         ) : (
