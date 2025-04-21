@@ -1,9 +1,12 @@
 import React from "react";
 import Link from "next/link";
-import { BsGithub } from "react-icons/bs";
+import { wrapIcon } from "../utils/Icon";
+import { BsGithub as RawBsGithub } from "react-icons/bs";
 
 type Props = {};
 
+// Wrap GitHub icon to ensure valid ReactElement
+const BsGithub = wrapIcon(RawBsGithub);
 export default function ChatPlaceholder({}: Props) {
   return (
     <div className="flex h-full w-full items-center justify-center">
