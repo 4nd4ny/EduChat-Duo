@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import ChatInput from "./ChatInput";
 import ChatMessage from "./ChatMessage";
-import ChatMessageDual from "./ChatMessageDual";
+// ChatMessageDual removed, dual mode handled inline
 import ChatPlaceholder from "./ChatPlaceholder";
 import { useAIProvider } from "../context/AIProviderManager";
 import { useOpenAI } from "../context/OpenAIProvider";
@@ -12,22 +12,50 @@ export default function ChatMessages() {
   const openai = useOpenAI();
   const anthropic = useAnthropic();
   
-  // En mode dual, afficher côte à côte les deux historiques
+  // En mode dual, afficher l'historique des deux agents côte à côte
   if (activeProvider === 'both') {
-    const leftMessages = anthropic.messages;
-    const rightMessages = openai.messages;
-    const len = Math.max(leftMessages.length, rightMessages.length);
+    const leftMsgs = anthropic.messages;
+    const rightMsgs = openai.messages;
+    const length = Math.max(leftMsgs.length, rightMsgs.length);
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-4 py-2">
-        {Array.from({ length: len }).map((_, index) => (
-          <ChatMessageDual
-            key={index}
-            leftMessage={leftMessages[index]}
-            rightMessage={rightMessages[index]}
-            messageIndex={index}
-          />
-        ))}
-        <ChatInput />
+      <div className="flex flex-col md:grid md:grid-cols-2 gap-4 px-4 py-2">
+        {Array.from({ length }).map((_, i) => {
+          const lm = leftMsgs[i];
+          const rm = rightMsgs[i];
+          // user message spans both columns
+          if (lm?.role === 'user') {
+            return (
+              <div key={i} className="md:col-span-2">
+                <ChatMessage
+                  message={lm}
+                  isInitialUserMessage={i === 0}
+                  isLastAssistantMessage={false}
+                  messageIndex={i}
+                />
+              </div>
+            );
+          }
+          // assistant messages side by side
+          return (
+            <React.Fragment key={i}>
+              <ChatMessage
+                message={lm}
+                isInitialUserMessage={false}
+                isLastAssistantMessage={i === leftMsgs.length - 1}
+                messageIndex={i}
+              />
+              <ChatMessage
+                message={rm}
+                isInitialUserMessage={false}
+                isLastAssistantMessage={i === rightMsgs.length - 1}
+                messageIndex={i}
+              />
+            </React.Fragment>
+          );
+        })}
+        <div className="md:col-span-2">
+          <ChatInput />
+        </div>
       </div>
     );
   }
