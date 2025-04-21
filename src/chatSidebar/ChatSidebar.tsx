@@ -1,6 +1,11 @@
 import Link from "next/link";
 import React, { useCallback } from "react";
-import { MdAdd, MdDeleteOutline, MdUploadFile } from "react-icons/md";
+import { wrapIcon } from "../utils/Icon";
+import {
+  MdAdd as RawMdAdd,
+  MdDeleteOutline as RawMdDeleteOutline,
+  MdUploadFile as RawMdUploadFile,
+} from "react-icons/md";
 import { useAnthropic } from "../context/AnthropicProvider";
 import { useOpenAI } from "../context/OpenAIProvider";
 import Conversations from "./Conversations";
@@ -10,6 +15,10 @@ import ModelSelector from "./ModelSelector"; // Importer le nouveau composant
 
 type Props = {};
 
+// Wrapped icons to ensure valid ReactElement return types
+const MdAdd = wrapIcon(RawMdAdd);
+const MdDeleteOutline = wrapIcon(RawMdDeleteOutline);
+const MdUploadFile = wrapIcon(RawMdUploadFile);
 export default function ChatSidebar({}: Props) {
   const openai = useOpenAI();
   const anthropic = useAnthropic();
