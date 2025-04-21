@@ -37,8 +37,11 @@ const getMessageContent = (content: string | { reply: string; tokenUsage: number
 };
 
 export default function Conversation({ id, conversation, active }: Props) {
-  const { updateConversationName, deleteConversation: deleteOpenAIConversation } = useOpenAI();
-  const { deleteConversation: deleteAnthropicConversation } = useAnthropic();
+  // Providers and methods
+  const openai = useOpenAI();
+  const anthropic = useAnthropic();
+  const { updateConversationName, deleteConversation: deleteOpenAIConversation } = openai;
+  const { deleteConversation: deleteAnthropicConversation } = anthropic;
   const { activeProvider } = useAIProvider();
   const [editing, setEditing] = React.useState(false);
 
@@ -93,24 +96,48 @@ export default function Conversation({ id, conversation, active }: Props) {
       return sanitized.toLowerCase();
     };
 
-    // Export en format texte (markdown)
-    const conversationText = conversation.messages
-      .map((msg: any) => `${msg.role}: ${getMessageContent(msg.content)}`)
-      .join("\n\n");
-    
-    const textBlob = new Blob([conversationText], { type: "text/plain" });
-    const textLink = document.createElement("a");
-    textLink.href = URL.createObjectURL(textBlob);
-    textLink.download = `${sanitizeFilename(conversation.name)}.md`;
-    textLink.click();
+    // Export en Markdown / JSON
+    if (activeProvider === 'both') {
+      // Dual: export both provider histories
+      const anthroMsgs = anthropic.messages;
+      const openaiMsgs = openai.messages;
+      [
+        { name: 'claude', msgs: anthroMsgs },
+        { name: 'chatgpt', msgs: openaiMsgs }
+      ].forEach(({ name, msgs }) => {
+        // Markdown export
+        const md = msgs.map(m => `${m.role}: ${getMessageContent(m.content)}`).join("\n\n");
+        const mdBlob = new Blob([md], { type: 'text/plain' });
+        const mdLink = document.createElement('a');
+        mdLink.href = URL.createObjectURL(mdBlob);
+        mdLink.download = `${sanitizeFilename(conversation.name)}-${name}.md`;
+        mdLink.click();
+        // JSON export
+        const json = JSON.stringify({ name: conversation.name, messages: msgs }, null, 2);
+        const jsonBlob = new Blob([json], { type: 'application/json' });
+        const jsonLink = document.createElement('a');
+        jsonLink.href = URL.createObjectURL(jsonBlob);
+        jsonLink.download = `${sanitizeFilename(conversation.name)}-${name}.json`;
+        jsonLink.click();
+      });
+    } else {
+      // Single provider: existing export
+      const conversationText = conversation.messages
+        .map((msg: any) => `${msg.role}: ${getMessageContent(msg.content)}`)
+        .join("\n\n");
+      const textBlob = new Blob([conversationText], { type: "text/plain" });
+      const textLink = document.createElement("a");
+      textLink.href = URL.createObjectURL(textBlob);
+      textLink.download = `${sanitizeFilename(conversation.name)}.md`;
+      textLink.click();
 
-    // Export en format JSON
-    const jsonData = JSON.stringify(conversation, null, 2);
-    const jsonBlob = new Blob([jsonData], { type: "application/json" });
-    const jsonLink = document.createElement("a");
-    jsonLink.href = URL.createObjectURL(jsonBlob);
-    jsonLink.download = `${sanitizeFilename(conversation.name)}.json`;
-    jsonLink.click();
+      const jsonData = JSON.stringify(conversation, null, 2);
+      const jsonBlob = new Blob([jsonData], { type: "application/json" });
+      const jsonLink = document.createElement("a");
+      jsonLink.href = URL.createObjectURL(jsonBlob);
+      jsonLink.download = `${sanitizeFilename(conversation.name)}.json`;
+      jsonLink.click();
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
