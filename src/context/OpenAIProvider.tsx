@@ -346,6 +346,8 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
     updateConversation(id, { name });
   };
 
+  // Persist current conversation including dual mode
+  const { activeProvider } = useAIProvider();
   const handleStoreConversation = useCallback(() => {
   // Vérifier si messages existe et n'est pas vide
   if (!messages?.length) return;
@@ -355,7 +357,8 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
       createdAt: Date.now(),
       lastMessage: Date.now(),
       messages,
-    } as Conversation;
+      mode: activeProvider,
+    } as any;
 
     let id = storeConversation(conversationId, conversation);
     setConversationId(id);
