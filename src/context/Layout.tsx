@@ -85,7 +85,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     </div>
                   </div>
                 )}
-                <div className={getSidebarClasses(sidebarOpen)} style={getSidebarStyle(sidebarOpen)}>
+                <div className={`${getSidebarClasses(sidebarOpen)} z-20`} style={getSidebarStyle(sidebarOpen)}>
                   <ChatSidebar />
                 </div>
               </>

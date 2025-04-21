@@ -21,7 +21,7 @@ export default function ChatMessages() {
     const anthroMsgs = anthropic.messages;
     const openaiMsgs = openai.messages;
     return (
-      <div className="flex h-full w-full flex-col items-stretch md:pl-[320px]">
+      <div className="flex h-full w-full flex-col items-stretch bg-tertiary md:pl-[320px]">
         <div
           className="relative flex-1 flex-col items-stretch overflow-auto border-b bg-tertiary pb-[10rem] scrollbar scrollbar-w-3 scrollbar-thumb-[rgb(var(--bg-primary))] scrollbar-track-[rgb(var(--bg-secondary))] scrollbar-thumb-rounded-full px-4 py-2"
         >
