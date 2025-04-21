@@ -1,17 +1,26 @@
 import Link from "next/link";
 import React, { useEffect } from "react";
 import { useAIProvider } from "../context/AIProviderManager";
+import { wrapIcon } from "../utils/Icon";
 import {
-  MdChatBubbleOutline,
-  MdCheck,
-  MdClear,
-  MdDelete,
-  MdDownload, 
-  MdDriveFileRenameOutline,
+  MdChatBubbleOutline as RawMdChatBubbleOutline,
+  MdCheck as RawMdCheck,
+  MdClear as RawMdClear,
+  MdDelete as RawMdDelete,
+  MdDownload as RawMdDownload,
+  MdDriveFileRenameOutline as RawMdDriveFileRenameOutline,
 } from "react-icons/md";
 import { Conversation as ConversationI } from "../context/History";
 import { useOpenAI } from "../context/OpenAIProvider";
 import { useAnthropic } from "../context/AnthropicProvider";
+
+// Wrapped icons to ensure valid ReactElement return types
+const MdChatBubbleOutline = wrapIcon(RawMdChatBubbleOutline);
+const MdCheck = wrapIcon(RawMdCheck);
+const MdClear = wrapIcon(RawMdClear);
+const MdDelete = wrapIcon(RawMdDelete);
+const MdDownload = wrapIcon(RawMdDownload);
+const MdDriveFileRenameOutline = wrapIcon(RawMdDriveFileRenameOutline);
 
 type Props = {
   id: string;
