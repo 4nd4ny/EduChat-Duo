@@ -1,187 +1,89 @@
-import React, { useState, useEffect, useRef } from "react";
+import React from "react";
 import ChatInput from "./ChatInput";
 import ChatMessage from "./ChatMessage";
-// ChatMessageDual removed, dual mode handled inline
 import ChatPlaceholder from "./ChatPlaceholder";
 import { useAIProvider } from "../context/AIProviderManager";
 import { useOpenAI } from "../context/OpenAIProvider";
 import { useAnthropic } from "../context/AnthropicProvider";
 
+/**
+ * ChatMessages component supports two modes:
+ * - 'both': dual mode, pairs of messages (user full width, assistants side-by-side)
+ * - simple: single column for active provider
+ */
 export default function ChatMessages() {
   const { activeProvider } = useAIProvider();
   const openai = useOpenAI();
   const anthropic = useAnthropic();
-  
-  // En mode dual, afficher l'historique des deux agents côte à côte
+
+  // Dual mode: even index = user messages (full width), odd index = assistant responses side-by-side
   if (activeProvider === 'both') {
-    const leftMsgs = anthropic.messages;
-    const rightMsgs = openai.messages;
-    const length = Math.max(leftMsgs.length, rightMsgs.length);
+    const anthroMsgs = anthropic.messages;
+    const openaiMsgs = openai.messages;
     return (
-      <div className="flex flex-col md:grid md:grid-cols-2 gap-4 px-4 py-2">
-        {Array.from({ length }).map((_, i) => {
-          const lm = leftMsgs[i];
-          const rm = rightMsgs[i];
-          // user message spans both columns
-          if (lm?.role === 'user') {
-            return (
-              <div key={i} className="md:col-span-2">
+      <div className="flex flex-col h-full w-full">
+        <div className="flex-1 overflow-auto px-4 py-2">
+          {anthroMsgs.map((msg, idx) =>
+            idx % 2 === 0 ? (
+              // User message spans full width
+              <div key={`user-${idx}`} className="mb-2">
                 <ChatMessage
-                  message={lm}
-                  isInitialUserMessage={i === 0}
+                  message={msg}
+                  isInitialUserMessage={idx === 0}
                   isLastAssistantMessage={false}
-                  messageIndex={i}
+                  messageIndex={idx}
                 />
               </div>
-            );
-          }
-          // assistant messages side by side
-          return (
-            <React.Fragment key={i}>
-              <ChatMessage
-                message={lm}
-                isInitialUserMessage={false}
-                isLastAssistantMessage={i === leftMsgs.length - 1}
-                messageIndex={i}
-              />
-              <ChatMessage
-                message={rm}
-                isInitialUserMessage={false}
-                isLastAssistantMessage={i === rightMsgs.length - 1}
-                messageIndex={i}
-              />
-            </React.Fragment>
-          );
-        })}
-        <div className="md:col-span-2">
+            ) : (
+              // Assistant messages side by side
+              <div key={`assist-${idx}`} className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+                <ChatMessage
+                  message={anthroMsgs[idx]}
+                  isInitialUserMessage={false}
+                  isLastAssistantMessage={idx === anthroMsgs.length - 1}
+                  messageIndex={idx}
+                />
+                <ChatMessage
+                  message={openaiMsgs[idx]}
+                  isInitialUserMessage={false}
+                  isLastAssistantMessage={idx === openaiMsgs.length - 1}
+                  messageIndex={idx}
+                />
+              </div>
+            )
+          )}
+        </div>
+        {/* Shared input */}
+        <div className="p-2 border-t border-white/20">
           <ChatInput />
         </div>
       </div>
     );
   }
-  // Mode simple: un seul fournisseur actif
-  const currentProvider = activeProvider === 'openai' ? openai : anthropic;
-  const { messages = [] } = currentProvider;
-  
-  const messageContainer = useRef<HTMLDivElement>(null);
-  const [scrolling, setScrolling] = useState(false);
-  const [visibleMessages, setVisibleMessages] = useState<typeof messages>([]);
-  const messageEndRef = useRef<HTMLDivElement>(null);
-  
-  let lastScrollTop = 0;
 
-  // Gestion du scroll
-  const handleUserScroll = () => {
-    if (messageContainer.current) {
-      const currentScrollTop = messageContainer.current.scrollTop;
-      const maxScrollTop = messageContainer.current.scrollHeight - messageContainer.current.offsetHeight;
-
-      if (currentScrollTop < lastScrollTop) {
-        setScrolling(true);
-      }
-
-      if (currentScrollTop >= maxScrollTop) {
-        setScrolling(false);
-      }
-
-      lastScrollTop = currentScrollTop;
-    }
-  };
-
-  // Synchronisation des messages visibles
-  useEffect(() => {
-    if (messages) {
-      setVisibleMessages(messages);
-    } else {
-      setVisibleMessages([]);
-    }
-  }, [messages, activeProvider]);
-
-  // Lors du changement de modèle, générer la réponse manquante si nécessaire
-  useEffect(() => {
-    // Si on bascule sur Claude et qu'il manque une réponse Claude
-    if (activeProvider === 'anthropic' && anthropic.messages.length < openai.messages.length) {
-      anthropic.submit(anthropic.messages);
-    }
-    // Si on bascule sur ChatGPT et qu'il manque une réponse ChatGPT
-    if (activeProvider === 'openai' && openai.messages.length < anthropic.messages.length) {
-      openai.submit(openai.messages);
-    }
-  }, [activeProvider]);
-
-  // Auto-scroll
-  useEffect(() => {
-    if (!scrolling) {
-      const scrollInterval = setInterval(() => {
-        if (messageContainer.current) {
-          const currentScrollTop = messageContainer.current.scrollTop;
-          const maxScrollTop = messageContainer.current.scrollHeight - messageContainer.current.offsetHeight;
-          if (currentScrollTop < maxScrollTop) {
-            messageContainer.current.scrollTop += 4;
-          } else {
-            clearInterval(scrollInterval);
-          }
-        }
-      }, 40);
-
-      return () => clearInterval(scrollInterval);
-    }
-  }, [messages, scrolling]);
-
-  // Event listeners pour le scroll
-  useEffect(() => {
-    const container = messageContainer.current;
-    if (container) {
-      container.addEventListener('scroll', handleUserScroll);
-    }
-
-    return () => {
-      if (container) {
-        container.removeEventListener('scroll', handleUserScroll);
-      }
-    };
-  }, []);
-
-  // Raccourci clavier pour la soumission
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && e.metaKey && currentProvider.addMessage) {
-        currentProvider.addMessage();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentProvider]);
-
+  // Simple mode: single provider messages in one column
+  const msgs = activeProvider === 'openai' ? openai.messages : anthropic.messages;
   return (
-    <div className="flex h-full w-full flex-col items-stretch md:pl-[320px]">
-      <div
-        className="relative flex-1 flex-col items-stretch overflow-auto border-b bg-tertiary pb-[10rem] scrollbar scrollbar-w-3 scrollbar-thumb-[rgb(var(--bg-primary))] scrollbar-track-[rgb(var(--bg-secondary))] scrollbar-thumb-rounded-full"
-        ref={messageContainer}
-      >
-        {!messages || visibleMessages.length === 0 ? (
+    <div className="flex flex-col h-full w-full">
+      <div className="flex-1 overflow-auto px-4 py-2">
+        {msgs.length === 0 ? (
           <ChatPlaceholder />
         ) : (
-          <>
-            {visibleMessages.map((message, index) => (
+          msgs.map((message, idx) => (
+            <div key={message.id ?? idx} className="mb-2">
               <ChatMessage
-                key={`${message.id}-${message.role}-${activeProvider}`}
                 message={message}
-                isInitialUserMessage={index === 0}
-                isLastAssistantMessage={
-                  message.role === 'assistant' &&
-                  index === visibleMessages.length - 1
-                }
-                messageIndex={index}
+                isInitialUserMessage={idx === 0}
+                isLastAssistantMessage={message.role === 'assistant' && idx === msgs.length - 1}
+                messageIndex={idx}
               />
-            ))}
-            <hr className="border-b border-stone-400/20" />
-          </>
+            </div>
+          ))
         )}
-        <div ref={messageEndRef} />
       </div>
-      <ChatInput />
+      <div className="p-2 border-t border-white/20">
+        <ChatInput />
+      </div>
     </div>
   );
 }
