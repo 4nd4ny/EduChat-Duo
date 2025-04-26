@@ -1,4 +1,4 @@
-# EduChat
+# EduChat-Duo
 
 This project is based on [EduChat](https://github.com/4nd4ny/EduChat-4o), which itself is based on the [GPT-4 Playground](https://github.com/Nashex/gpt4-playground) project by [Nashex](https://github.com/Nashex). It's a dual version with two AI models: Claude and ChatGPT responding to user requests in parallel, with extended thinking mode.
 
