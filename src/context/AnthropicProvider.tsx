@@ -36,9 +36,9 @@ const defaultContext = {
   conversationName: "",
   updateConversationName: () => {},
   generateTitle: () => {},
-
-  importConversation: () => {},
   loadConversation: (id: string, conversation: Conversation) => {},
+  importConversation: () => {},
+  isValidModel: () => true,
   resetConversation: (idParam?: string) => {}, 
   deleteConversation: () => {},  
   deleteMessagesFromIndex: (index: number) => {},
@@ -82,7 +82,7 @@ const AnthropicContext = React.createContext<{
   error: string;
 }>(defaultContext);
 
-export default function AnthropicProvider({ children }: PropsWithChildren) {
+function AnthropicProvider({ children }: PropsWithChildren) {
   
   // General
   const router = useRouter(); 
@@ -432,20 +432,6 @@ const loadConversation = (id: string, conversation: Conversation) => {
   }, [router.asPath, conversationId, loadConversation]);
 
   // Fonctions auxiliaires
-
-  function isValidConversationStructure(data: any): boolean {
-    return (
-      typeof data === 'object' &&
-      typeof data.name === 'string' &&
-      Array.isArray(data.messages) &&
-      data.messages.every((msg: any) =>
-        typeof msg === 'object' &&
-        (msg.role === 'assistant' || msg.role === 'user') &&
-        (typeof msg.content === 'string' || (typeof msg.content === 'object' && typeof msg.content.reply === 'string'))
-      )
-    );
-  }
-
   function isValidModel(model: any): model is keyof typeof AnthropicChatModels {
     return typeof model === 'string' && model in AnthropicChatModels;
   }
@@ -567,6 +553,7 @@ useEffect(() => {
       generateTitle: () => {},
       loadConversation,
       importConversation: () => {},
+      isValidModel,
       deleteConversation,
       deleteMessagesFromIndex,
       resetConversation,
@@ -584,8 +571,8 @@ useEffect(() => {
       addMessage,
       conversationId,
       conversationName,
-      registerAnthropicData,
       updateConversationName,
+      registerAnthropicData,
       deleteMessagesFromIndex,
       resetConversation,
       clearConversations,

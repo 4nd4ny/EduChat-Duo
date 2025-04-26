@@ -7,7 +7,7 @@ type Props = {};
 
 // Wrap GitHub icon to ensure valid ReactElement
 const BsGithub = wrapIcon(RawBsGithub);
-export default function ChatPlaceholder({}: Props) {
+export default function ChatPlaceHolder({}: Props) {
   return (
     <div className="flex h-full w-full items-center justify-center">
       <div className="max-w-md p-4 text-center text-primary">

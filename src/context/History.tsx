@@ -17,6 +17,7 @@ export type Conversation = {
   // Messages per provider
   openaiMessages?: OpenAIChatMessage[];
   anthropicMessages?: OpenAIChatMessage[];
+  importError?: string; // Ajouté pour gestion d'erreur d'importation
 };
 
 export type History = Record<string, Conversation>;

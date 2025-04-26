@@ -1,4 +1,3 @@
-import Link from "next/link";
 import React, { useCallback } from "react";
 import { wrapIcon } from "../utils/Icon";
 import {
@@ -6,8 +5,6 @@ import {
   MdDeleteOutline as RawMdDeleteOutline,
   MdUploadFile as RawMdUploadFile,
 } from "react-icons/md";
-import { BsRobot as RawBsRobot } from "react-icons/bs";
-import { RiRobot2Line as RawRiRobot2Line } from "react-icons/ri";
 import { useAnthropic } from "../context/AnthropicProvider";
 import { useAIProvider } from "../context/AIProviderManager";
 import { useOpenAI } from "../context/OpenAIProvider";
@@ -15,6 +12,7 @@ import Conversations from "./Conversations";
 import ButtonContainer from "./ButtonContainer";
 import { useDropzone } from 'react-dropzone';
 import ModelSelector from "./ModelSelector"; // Importer le nouveau composant
+import Link from "next/link";
 
 type Props = {};
 
@@ -22,13 +20,11 @@ type Props = {};
 const MdAdd = wrapIcon(RawMdAdd);
 const MdDeleteOutline = wrapIcon(RawMdDeleteOutline);
 const MdUploadFile = wrapIcon(RawMdUploadFile);
-const BsRobot = wrapIcon(RawBsRobot);
-const RiRobot2Line = wrapIcon(RawRiRobot2Line);
 
 export default function ChatSidebar({}: Props) {
   const openai = useOpenAI();
   const anthropic = useAnthropic();
-  const { activeProvider, setActiveProvider, importConversationCoordinated } = useAIProvider(); 
+  const { activeProvider, importConversationCoordinated } = useAIProvider(); 
 
   const handleNewChat = (e: React.MouseEvent) => {
     e.preventDefault();

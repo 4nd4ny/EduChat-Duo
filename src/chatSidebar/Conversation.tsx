@@ -233,7 +233,7 @@ export default function Conversation({ id, conversation, active }: Props) {
       // Navigate and sync provider on click
       onClick={() => {
         router.push(`/chat/${id}`);
-        setActiveProvider((conversation.lastProvider ?? conversation.mode) as 'openai' | 'anthropic' | 'both');
+        setActiveProvider((conversation.lastProvider ?? 'both') as 'openai' | 'anthropic' | 'both');
       }}
       className={`group relative flex flex-row items-center gap-3 rounded p-3 hover:bg-secondary ${
         active ? "bg-secondary" : ""
@@ -245,9 +245,6 @@ export default function Conversation({ id, conversation, active }: Props) {
           if (conversation.lastProvider === 'openai') return <BsRobot />;
           if (conversation.lastProvider === 'anthropic') return <RiRobot2Line />;
           if (conversation.lastProvider === 'both') return <BiConversation />;
-          if (conversation.mode === 'openai') return <BsRobot />;
-          if (conversation.mode === 'anthropic') return <RiRobot2Line />;
-          if (conversation.mode === 'both') return <BiConversation />;
           // Default chat bubble
           return <MdChatBubbleOutline />;
         })()}

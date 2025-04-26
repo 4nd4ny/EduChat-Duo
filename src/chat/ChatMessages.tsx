@@ -1,24 +1,10 @@
 import React from 'react';
 import ChatInput from './ChatInput';
 import ChatMessage from './ChatMessage';
-import ChatPlaceholder from './ChatPlaceholder';
+import ChatPlaceHolder from './ChatPlaceHolder';
 import { useAIProvider } from '../context/AIProviderManager';
 import { useOpenAI } from '../context/OpenAIProvider';
 import { useAnthropic } from '../context/AnthropicProvider';
-
-/*
- * ChatMessages est responsable de l’affichage d’une conversation qui peut se
- * trouver dans trois états :
- *   – mono-provider OpenAI
- *   – mono-provider Anthropic
- *   – mode dual (« both »)
- *
- * En mode dual nous fusionnons les listes de messages pour pouvoir :
- *   • afficher les messages utilisateurs une seule fois ;
- *   • si les deux modèles ont répondu exactement la même chose → message unique
- *     marqué unifiedResponse=true.
- *   • sinon (réponses différentes) → deux messages assistants côte-à-côte.
- */
 
 export default function ChatMessages() {
   const { activeProvider } = useAIProvider();
@@ -31,10 +17,7 @@ export default function ChatMessages() {
   // Petite utilité pour normaliser le content.
   const extractContent = (c: any) => (typeof c === 'string' ? c : c.reply);
 
-  /* ------------------------------------------------------------------------
-   * Fusion de l’historique
-   * --------------------------------------------------------------------- */
-
+  // Fusion de l’historique
   const buildMerged = () => {
     // Mono provider : pas de fusion complexe.
     if (activeProvider === 'openai') return oMsgs.map((m) => ({ ...m, provider: 'openai' }));
@@ -106,7 +89,7 @@ export default function ChatMessages() {
     return (
       <div className="flex h-full w-full flex-col items-stretch md:pl-[320px] bg-tertiary">
         <div className="relative flex-1 overflow-auto border-b bg-tertiary pb-[10rem] ml-2 z-10">
-          <ChatPlaceholder />
+          <ChatPlaceHolder />
         </div>
         <div className="p-2 border-t border-white/20 bg-tertiary z-10">
           <ChatInput />

@@ -1,4 +1,5 @@
 import ChatMessages from "../../chat/ChatMessages";
+import ChatErrorHolder from "../../chat/ChatErrorHolder";
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
 import { getConversation } from "../../context/History";
@@ -7,6 +8,7 @@ import { useOpenAI } from "../../context/OpenAIProvider";
 import { useAIProvider } from "../../context/AIProviderManager";
 
 export default function Chat() {
+  const [importError, setImportError] = useState<string | null>(null);
   const router = useRouter();
   const { id } = router.query;
   const { loadConversation: loadAnthropicConversation, conversationId: anthropicConversationId } = useAnthropic();
@@ -16,6 +18,8 @@ export default function Chat() {
 
   // Effet principal optimisé pour initialiser la conversation
   useEffect(() => {
+    // Reset error on id change
+    setImportError(null);
     if (!id || typeof id !== 'string') return;
     
     // Indiquer qu'un chargement est en cours
@@ -28,6 +32,11 @@ export default function Chat() {
         console.log(`[id].tsx: Conversation ${id} non trouvée, redirection...`);
         router.push("/");
         return;
+      }
+
+      // Vérifier s'il s'agit d'une importation (flag meta, ou champ importError dans conversation)
+      if (conversation.importError) {
+        setImportError(conversation.importError);
       }
       
       // Déterminer le provider avec priorité claire
@@ -74,7 +83,10 @@ export default function Chat() {
             <p className="text-primary">Chargement de la conversation...</p>
           </div>
         ) : (
-          <ChatMessages />
+          <>
+            <ChatErrorHolder error={importError} onClose={() => setImportError(null)} />
+            <ChatMessages />
+          </>
         )}
       </div>
     </React.Fragment>

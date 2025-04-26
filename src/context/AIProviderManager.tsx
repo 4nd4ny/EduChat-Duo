@@ -2,16 +2,10 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { OpenAIChatModels } from './OpenAI/OpenAI.constants';
 import { AnthropicChatModels } from './Anthropic/Anthropic.constants';
-import { OpenAIChatMessage } from './OpenAI/OpenAI.types';
-import { AnthropicChatMessage } from './Anthropic/Anthropic.types';
-import OpenAIProvider from './OpenAIProvider';
-import AnthropicProvider from './AnthropicProvider';
-import { Conversation, storeConversation as storeConversationFn, getHistory, updateConversation } from './History';
+import { Conversation, storeConversation as storeConversationFn, getHistory } from './History';
 import { useRouter } from "next/router";
 import { v4 as uuidv4 } from "uuid";
 import { useMode } from './ModeContext';
-
-// ---------  Internal helper types  ------------------
 
 interface ProviderSyncData {
   messages: any[];
@@ -60,10 +54,8 @@ interface AIProviderContextType {
   registerAnthropicData: (data: ProviderSyncData) => void;
   registerOpenAIData: (data: ProviderSyncData) => void;
 
-  /**
-   * Centralised helper to dispatch a user/assistant message to the underlying
-   * provider(s) according to the current mode (single / dual).
-   */
+  // Centralised helper to dispatch a user/assistant message to the underlying
+  // provider(s) according to the current mode (single / dual).
   addMessage: (
     content: string,
     role?: 'user' | 'assistant'
@@ -83,9 +75,7 @@ interface AIProviderContextType {
   openaiMessages: any[];
   anthropicMessages: any[];
 
-  /**
-   * Combined loading state reflecting the busy status of the provider(s)
-   */
+  // Combined loading state reflecting the busy status of the provider(s)
   loading: boolean;
 }
 const AIProviderContext = createContext<AIProviderContextType>({
@@ -138,12 +128,12 @@ export function AIProviderManager({ children }: ProviderManagerProps) {
   const setLastModel = useCallback((model: 'anthropic' | 'openai' | 'both') => {
     setLastModelState(model);
 
-  // Notifier les changements
-  const event = new CustomEvent('lastProviderChanged', { 
-      detail: { lastProvider: model } 
-    });
-    document.dispatchEvent(event);
-  }, []);
+    // Notifier les changements
+    const event = new CustomEvent('lastProviderChanged', { 
+        detail: { lastProvider: model } 
+      });
+      document.dispatchEvent(event);
+    }, []);
 
   const isAnthropicModel = useCallback((model: string) => {
     return Object.keys(AnthropicChatModels).includes(model);
@@ -191,10 +181,23 @@ export function AIProviderManager({ children }: ProviderManagerProps) {
     }
   }, [activeProvider, setMode]);
 
+  function isValidStructure(data: any): boolean {
+    return (
+      typeof data === 'object' &&
+      typeof data.name === 'string' &&
+      Array.isArray(data.messages) &&
+      data.messages.every((msg: any) =>
+        typeof msg === 'object' &&
+        (msg.role === 'assistant' || msg.role === 'user') &&
+        (typeof msg.content === 'string' || (typeof msg.content === 'object' && typeof msg.content.reply === 'string'))
+      )
+    );
+  }
+
   // Fonction coordonnée d'importation - APRÈS toutes les autres fonctions
   const importConversationCoordinated = useCallback((jsonData: any) => {
     try {
-      // Validation minimaliste
+      // Validation stricte de la structure des conversations importées
       if (!jsonData.meta || !jsonData.openai || !jsonData.anthropic) {
         throw new Error('Invalid format');
       }
@@ -207,6 +210,25 @@ export function AIProviderManager({ children }: ProviderManagerProps) {
       const anMsgs = jsonData.anthropic as any[];
       if (!Array.isArray(oaMsgs) || !Array.isArray(anMsgs) || oaMsgs.length !== anMsgs.length) {
         throw new Error('Desynchronised messages');
+      }
+
+      // Validation fine de la structure des messages et des modèles pour chaque provider
+      if (!isValidStructure({ name: jsonData.meta.conversationName, messages: oaMsgs })) {
+        throw new Error('Invalid OpenAI conversation structure');
+      }
+      if (!isValidStructure({ name: jsonData.meta.conversationName, messages: anMsgs })) {
+        throw new Error('Invalid Anthropic conversation structure');
+      }
+      // Validation des modèles présents dans les messages (si applicable)
+      for (const msg of oaMsgs) {
+        if (msg.model && !OpenAIProvider.isValidModel(msg.model)) {
+          throw new Error(`Invalid OpenAI model: ${msg.model}`);
+        }
+      }
+      for (const msg of anMsgs) {
+        if (msg.model && !AnthropicProvider.isValidModel(msg.model)) {
+          throw new Error(`Invalid Anthropic model: ${msg.model}`);
+        }
       }
 
       const newId = uuidv4();
@@ -239,6 +261,23 @@ export function AIProviderManager({ children }: ProviderManagerProps) {
       return true;
     } catch (e) {
       console.error('Import failed', e);
+      // Enregistre une conversation factice avec le champ importError pour affichage UI
+      try {
+        const newId = uuidv4();
+        const conversation = {
+          name: 'Erreur d\'importation',
+          lastProvider: 'both',
+          createdAt: Date.now(),
+          lastMessage: Date.now(),
+          openaiMessages: [],
+          anthropicMessages: [],
+          importError: e instanceof Error ? e.message : 'Erreur inconnue',
+        } as any;
+        onStoreConversation(newId, conversation);
+        router.push(`/chat/${newId}`);
+      } catch (err) {
+        // fallback: rien à faire
+      }
       return false;
     }
   }, [syncDataRef, onStoreConversation, router, setMode]);
