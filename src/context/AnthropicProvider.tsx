@@ -38,7 +38,6 @@ const defaultContext = {
   generateTitle: () => {},
   loadConversation: (id: string, conversation: Conversation) => {},
   importConversation: () => {},
-  isValidModel: () => true,
   resetConversation: (idParam?: string) => {}, 
   deleteConversation: () => {},  
   deleteMessagesFromIndex: (index: number) => {},
@@ -82,7 +81,7 @@ const AnthropicContext = React.createContext<{
   error: string;
 }>(defaultContext);
 
-function AnthropicProvider({ children }: PropsWithChildren) {
+export function AnthropicProvider({ children }: PropsWithChildren) {
   
   // General
   const router = useRouter(); 
@@ -431,11 +430,6 @@ const loadConversation = (id: string, conversation: Conversation) => {
     }
   }, [router.asPath, conversationId, loadConversation]);
 
-  // Fonctions auxiliaires
-  function isValidModel(model: any): model is keyof typeof AnthropicChatModels {
-    return typeof model === 'string' && model in AnthropicChatModels;
-  }
-  
   const deleteMessagesFromIndex = useCallback((index: number) => {
     setMessages((prev) => {
       const prevMessages = prev || [];
@@ -553,7 +547,6 @@ useEffect(() => {
       generateTitle: () => {},
       loadConversation,
       importConversation: () => {},
-      isValidModel,
       deleteConversation,
       deleteMessagesFromIndex,
       resetConversation,
@@ -585,5 +578,5 @@ useEffect(() => {
     <AnthropicContext.Provider value={value}>{children}</AnthropicContext.Provider>
   );
 }
-
+ 
 export const useAnthropic = () => React.useContext(AnthropicContext);

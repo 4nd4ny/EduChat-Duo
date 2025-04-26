@@ -2,6 +2,8 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { OpenAIChatModels } from './OpenAI/OpenAI.constants';
 import { AnthropicChatModels } from './Anthropic/Anthropic.constants';
+import { AnthropicProvider } from './AnthropicProvider';
+import { OpenAIProvider } from './OpenAIProvider';
 import { Conversation, storeConversation as storeConversationFn, getHistory } from './History';
 import { useRouter } from "next/router";
 import { v4 as uuidv4 } from "uuid";
@@ -218,17 +220,6 @@ export function AIProviderManager({ children }: ProviderManagerProps) {
       }
       if (!isValidStructure({ name: jsonData.meta.conversationName, messages: anMsgs })) {
         throw new Error('Invalid Anthropic conversation structure');
-      }
-      // Validation des modèles présents dans les messages (si applicable)
-      for (const msg of oaMsgs) {
-        if (msg.model && !OpenAIProvider.isValidModel(msg.model)) {
-          throw new Error(`Invalid OpenAI model: ${msg.model}`);
-        }
-      }
-      for (const msg of anMsgs) {
-        if (msg.model && !AnthropicProvider.isValidModel(msg.model)) {
-          throw new Error(`Invalid Anthropic model: ${msg.model}`);
-        }
       }
 
       const newId = uuidv4();

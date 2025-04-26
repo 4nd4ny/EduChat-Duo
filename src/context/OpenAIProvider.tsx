@@ -40,7 +40,6 @@ const defaultContext = {
   generateTitle: () => {},
   loadConversation: () => {},
   importConversation: () => {},
-  isValidModel: () => true,
   deleteConversation: () => {},
   deleteMessagesFromIndex: () => {},
   resetConversation: () => {},
@@ -84,7 +83,7 @@ const OpenAIContext = React.createContext<{
   error: string;
 }>(defaultContext);
 
-function OpenAIProvider({ children }: PropsWithChildren) {
+export function OpenAIProvider({ children }: PropsWithChildren) {
   
   // General
   const router = useRouter(); 
@@ -426,11 +425,6 @@ function OpenAIProvider({ children }: PropsWithChildren) {
     }
   }, [router.asPath, conversationId, loadConversation]);
 
-  // Fonctions auxiliaires
-  function isValidModel(model: any): model is keyof typeof OpenAIChatModels {
-    return typeof model === 'string' && model in OpenAIChatModels;
-  }
-  
   const deleteMessagesFromIndex = useCallback((index: number) => {
     setMessages((prev) => {
       const prevMessages = prev || [];
@@ -548,7 +542,6 @@ useEffect(() => {
       generateTitle: () => {},
       loadConversation,
       importConversation: () => {},
-      isValidModel,
       deleteConversation,
       deleteMessagesFromIndex,
       resetConversation,
@@ -579,5 +572,5 @@ useEffect(() => {
     <OpenAIContext.Provider value={value}>{children}</OpenAIContext.Provider>
   );
 }
-
+ 
 export const useOpenAI = () => React.useContext(OpenAIContext);
