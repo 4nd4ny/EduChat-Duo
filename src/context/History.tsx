@@ -9,10 +9,8 @@ export type Conversation = {
   name: string;
   // Whether automatic title regeneration is disabled (after manual rename)
   disableAutoTitle?: boolean;
-  // Identifier of the last model used for assistant reply or active provider
-  lastModel?: string;
-  // Mode of the conversation: single provider or dual
-  mode?: 'openai' | 'anthropic' | 'both';
+  // Identifier of the last provider used for assistant reply (ex: 'openai' ou 'anthropic')
+  lastProvider?: 'openai' | 'anthropic' | 'both';
   // Timestamps
   createdAt: number; // Unix timestamp
   lastMessage: number; // Unix timestamp

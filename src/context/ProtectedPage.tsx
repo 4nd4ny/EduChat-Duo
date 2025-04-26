@@ -21,8 +21,8 @@ const ProtectedPage: React.FC<ProtectedPageProps> = ({ children }) => {
     try {
       const response = await fetch('/api/ip'); // Appelle l'API Next.js
       const data = await response.json();
-      setClientIp(data.ip); // Stocke l'IP du client
-      console.log(data);
+      setClientIp(data.ip); // Stocke l'IP du client [PRODUCTION --> FOR SECURITY]
+      console.log(data); // [DEBUG ONLY]
       // setIsIpAllowed(data.isIpAllowed); // Stocke le statut si l'IP est autorisée [DEBUG ONLY]
     } catch (error) {
       console.error('Erreur lors de la récupération de l\'IP :', error);

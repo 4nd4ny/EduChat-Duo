@@ -47,7 +47,7 @@ export default function ChatMessage({
     isOpenAIModel, 
     isAnthropicModel, 
     activeProvider: currentActiveProvider,
-    lastModel,
+    lastProvider,
     regenerateMessage,
     replaceMessages,
     deleteMessagesFromIndex,
@@ -105,9 +105,9 @@ export default function ChatMessage({
     // Déterminer le modèle à utiliser
     let nextModel = '';
     
-    // Si on est en mode dual, utiliser le lastModel pour décider du modèle
+    // Si on est en mode dual, utiliser le lastProvider pour décider du modèle
     if (currentActiveProvider === 'both') {
-      if (lastModel === 'openai' || (lastModel === 'both' && providerFromModel === 'openai')) {
+      if (lastProvider === 'openai' || (lastProvider === 'both' && providerFromModel === 'openai')) {
         // Alterner entre o4-mini et o3 pour OpenAI
         const assistantMsgs = openaiMessages.filter(m => m.role === 'assistant');
         nextModel = assistantMsgs.length > 0 && assistantMsgs[assistantMsgs.length - 1].model === 'o4-mini'
@@ -167,9 +167,9 @@ export default function ChatMessage({
     // Déterminer le modèle à utiliser en fonction du provider
     let currentModel = '';
     
-    // Si on est en mode dual, utiliser le lastModel pour décider du modèle
+    // Si on est en mode dual, utiliser le lastProvider pour décider du modèle
     if (currentActiveProvider === 'both') {
-      if (lastModel === 'openai' || (lastModel === 'both' && providerFromModel === 'openai')) {
+      if (lastProvider === 'openai' || (lastProvider === 'both' && providerFromModel === 'openai')) {
         currentModel = 'gpt-4.1';
       } else {
         currentModel = 'claude-3-7-sonnet-latest';
@@ -242,9 +242,9 @@ export default function ChatMessage({
     
     // Si le mode est 'both', vérifier si les réponses sont identiques
     if (model === 'both') {
-      return lastModel === 'both' 
+      return lastProvider === 'both' 
         ? 'IDENTICAL RESPONSES FROM BOTH MODELS'
-        : `${lastModel.toUpperCase()} (DUAL MODE)`;
+        : `${lastProvider.toUpperCase()} (DUAL MODE)`;
     }
     
     // Afficher le mode thinking si présent

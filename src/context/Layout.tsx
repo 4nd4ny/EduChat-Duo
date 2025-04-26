@@ -4,7 +4,7 @@ import ChatSidebar from "@/chatSidebar/ChatSidebar";
 import Head from "next/head";
 import { useRouter } from 'next/router';
 import styles from '@/utils/sidebar.module.css';
-import { formatTokens } from '@/utils/formatTokens'; // Assurez-vous de créer ce fichier
+import { formatTokens } from '@/utils/formatTokens'; 
 
 interface LayoutProps {
   children: React.ReactNode;

@@ -21,7 +21,7 @@ export default function Chat() {
     // Indiquer qu'un chargement est en cours
     setLoading(true);
     
-    // Ajouter un délai pour laisser le temps à l'analyse du lastModel ???
+    // Ajouter un délai pour laisser le temps à l'analyse du lastProvider ???
 
        const conversation = getConversation(id as string);
       if (!conversation) {
@@ -31,7 +31,7 @@ export default function Chat() {
       }
       
       // Déterminer le provider avec priorité claire
-      const provider = conversation.lastModel || conversation.mode || activeProvider;
+      const provider = conversation.lastProvider || activeProvider;
       console.log(`[id].tsx: Conversation ${id} a provider=${provider}, current=${activeProvider}`);
       
       // Toujours mettre à jour le provider de façon synchrone
@@ -57,12 +57,8 @@ export default function Chat() {
         modelName = 'ChatGPT';
       } else if (provider === 'anthropic') {
         modelName = 'Claude';
-      } else if (provider === 'both') {
+      } else {
         modelName = 'Dual Mode';
-      }
-      
-      if (typeof window !== "undefined") {
-        document.title = `EduChat - ${modelName}`;
       }
       
       // Terminé le chargement

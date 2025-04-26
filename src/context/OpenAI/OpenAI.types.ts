@@ -1,10 +1,11 @@
 import { OpenAIChatModels } from "./OpenAI.constants";
+import { AnthropicChatModels } from "../Anthropic/Anthropic.constants";
 
 export interface OpenAIChatMessage {
   id?: number;
   role: "assistant" | "user";
   content: string | { reply: string; tokenUsage: number };
-  model?: keyof typeof OpenAIChatModels;
+  model?: keyof typeof OpenAIChatModels | keyof typeof AnthropicChatModels;
 }
 
 export interface OpenAIMessageWithSystemRole {

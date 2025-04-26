@@ -51,20 +51,9 @@ export default function Conversations({}: Props) {
       }
     };
   }, []);
-  // Get pinned IDs
-  const dualId = localStorage.getItem(DUAL_KEY) || '';
-  const openaiId = localStorage.getItem(OPENAI_KEY) || '';
-  const anthroId = localStorage.getItem(ANTHROPIC_KEY) || '';
+
   // Determine active conversation ID
-  let activeId: string;
-  if (activeProvider === 'openai') {
-    activeId = openai.conversationId;
-  } else if (activeProvider === 'anthropic') {
-    activeId = anthropic.conversationId;
-  } else {
-    // Dual mode: use current OpenAI conversationId (same as Anthropic)
-    activeId = openai.conversationId || anthropic.conversationId || dualId;
-  }
+  const activeId = localStorage.getItem(DUAL_KEY) || '';
   // Build ordered list: pinned then others
   const talks = Object.entries(history)
     .sort(([, a], [, b]) => b.createdAt - a.createdAt);

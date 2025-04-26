@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from "uuid";
 import {
   Conversation,
   getHistory,
@@ -355,7 +354,7 @@ export default function AnthropicProvider({ children }: PropsWithChildren) {
   };
 
   // Persist current conversation including dual mode
-  const { activeProvider, onStoreConversation, lastModel } = useAIProvider();
+  const { activeProvider, onStoreConversation, lastProvider } = useAIProvider();
 
   const handleStoreConversation = useCallback(() => {
 
@@ -369,8 +368,7 @@ export default function AnthropicProvider({ children }: PropsWithChildren) {
       // Conversation metadata
       name: existing.name ?? conversationName,
       disableAutoTitle: existing.disableAutoTitle ?? false,
-      lastModel: lastModel,
-      mode: activeProvider,
+      lastProvider: lastProvider,
       // Timestamps
       createdAt: existing.createdAt ?? Date.now(),
       lastMessage: Date.now(),
@@ -407,7 +405,7 @@ export default function AnthropicProvider({ children }: PropsWithChildren) {
   if (router.pathname === CHAT_ROUTE && (activeProvider === 'openai' || activeProvider === 'both')) {
     router.push(`/chat/${id}`);
   }
-}, [conversationId, messages, conversationName, router.pathname, activeProvider, lastModel, onStoreConversation]);
+}, [conversationId, messages, conversationName, router.pathname, activeProvider, lastProvider, onStoreConversation]);
 
   useEffect(() => {
     handleStoreConversation();
@@ -471,8 +469,7 @@ const loadConversation = (id: string, conversation: Conversation) => {
     const newConversation: Conversation = {
       name: "...",
       disableAutoTitle: false,
-      lastModel: lastModel,
-      mode: activeProvider,
+      lastProvider: lastProvider,
       createdAt: Date.now(),
       lastMessage: Date.now(),
       anthropicMessages: [],
@@ -490,7 +487,7 @@ const loadConversation = (id: string, conversation: Conversation) => {
 
     // Navigate to new conversation
     router.push(`/chat/${newId}`);
-  }, [router, activeProvider, lastModel, onStoreConversation]);
+  }, [router, activeProvider, lastProvider, onStoreConversation]);
 
   const deleteConversation = (id: string) => {
     deleteConversationFromHistory(id);

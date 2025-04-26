@@ -45,8 +45,8 @@ type SyncData = {
 interface AIProviderContextType {
   activeProvider: 'anthropic' | 'openai' | 'both';
   setActiveProvider: (provider: 'anthropic' | 'openai' | 'both') => void;
-  lastModel: 'anthropic' | 'openai' | 'both'; // Exposer lastModel dans le contexte
-  setLastModel: (model: 'anthropic' | 'openai' | 'both') => void; // Exposer une méthode pour mettre à jour lastModel
+  lastProvider: 'anthropic' | 'openai' | 'both'; // Exposer lastProvider dans le contexte
+  setLastModel: (model: 'anthropic' | 'openai' | 'both') => void; // Exposer une méthode pour mettre à jour lastProvider
   isAnthropicModel: (model: string) => boolean;
   isOpenAIModel: (model: string) => boolean;
   onStoreConversation: (id: string, conversation: Conversation) => string;
@@ -91,7 +91,7 @@ interface AIProviderContextType {
 const AIProviderContext = createContext<AIProviderContextType>({
   activeProvider: 'anthropic',
   setActiveProvider: () => {},
-  lastModel: 'anthropic', // Valeur par défaut
+  lastProvider: 'anthropic', // Valeur par défaut
   setLastModel: () => {}, // Fonction par défaut
   isAnthropicModel: () => false,
   isOpenAIModel: () => false,
@@ -125,8 +125,8 @@ export function AIProviderManager({ children }: ProviderManagerProps) {
   // Mode global (source unique)
   const { mode: activeProvider, setMode } = useMode();
 
-  // AIProviderManager garde toujours lastModel pour savoir qui vient de répondre
-  const [lastModel, setLastModelState] = useState<'anthropic' | 'openai' | 'both'>(activeProvider);
+  // AIProviderManager garde toujours lastProvider pour savoir qui vient de répondre
+  const [lastProvider, setLastModelState] = useState<'anthropic' | 'openai' | 'both'>(activeProvider);
 
   // Références pour stocker les données de synchronisation
   const syncDataRef = useRef<SyncData>({});
@@ -134,13 +134,13 @@ export function AIProviderManager({ children }: ProviderManagerProps) {
   // Next.js router to detect conversation changes
   const router = useRouter();
 
-  // Fonction pour mettre à jour lastModel
+  // Fonction pour mettre à jour lastProvider
   const setLastModel = useCallback((model: 'anthropic' | 'openai' | 'both') => {
     setLastModelState(model);
 
   // Notifier les changements
-  const event = new CustomEvent('lastModelChanged', { 
-      detail: { lastModel: model } 
+  const event = new CustomEvent('lastProviderChanged', { 
+      detail: { lastProvider: model } 
     });
     document.dispatchEvent(event);
   }, []);
@@ -176,13 +176,13 @@ export function AIProviderManager({ children }: ProviderManagerProps) {
 
   // Centralized conversation storage
   const onStoreConversation = useCallback((id: string, conversation: Conversation) => {
-    // Ajouter lastModel aux métadonnées de la conversation
+    // Ajouter lastProvider aux métadonnées de la conversation
     const updatedConversation = {
       ...conversation,
-      lastModel: lastModel
+      lastProvider: lastProvider
     };
     return storeConversationFn(id, updatedConversation);
-  }, [lastModel]);
+  }, [lastProvider]);
 
   const setActiveProvider = useCallback((provider: 'anthropic' | 'openai' | 'both') => {
     if (provider !== activeProvider) {
@@ -198,9 +198,9 @@ export function AIProviderManager({ children }: ProviderManagerProps) {
       if (!jsonData.meta || !jsonData.openai || !jsonData.anthropic) {
         throw new Error('Invalid format');
       }
-      const { lastModel } = jsonData.meta;
-      if (!['openai', 'anthropic', 'both'].includes(lastModel)) {
-        throw new Error('Invalid lastModel');
+      const { lastProvider } = jsonData.meta;
+      if (!['openai', 'anthropic', 'both'].includes(lastProvider)) {
+        throw new Error('Invalid lastProvider');
       }
 
       const oaMsgs = jsonData.openai as any[];
@@ -220,8 +220,8 @@ export function AIProviderManager({ children }: ProviderManagerProps) {
       const now = Date.now();
       const conversation = {
         name: jsonData.meta.conversationName || 'Imported conversation',
-        lastModel,
-        mode: jsonData.meta.mode || lastModel,
+        lastProvider,
+        mode: jsonData.meta.mode || lastProvider,
         createdAt: now,
         lastMessage: now,
         openaiMessages: oaMsgs,
@@ -231,7 +231,7 @@ export function AIProviderManager({ children }: ProviderManagerProps) {
       onStoreConversation(newId, conversation);
 
       // Appliquer le mode enregistré
-      setMode(lastModel);
+      setMode(lastProvider);
 
       // Navigation vers la nouvelle conversation
       router.push(`/chat/${newId}`);
@@ -260,8 +260,7 @@ export function AIProviderManager({ children }: ProviderManagerProps) {
           meta: {
             conversationId,
             conversationName: conv.name,
-            lastModel: conv.lastModel || activeProvider,
-            mode: conv.mode || activeProvider,
+            lastProvider: conv.lastProvider || activeProvider,
             exportedAt: new Date().toISOString(),
           },
           openai: openai?.messages || conv.openaiMessages || [],
@@ -284,10 +283,7 @@ export function AIProviderManager({ children }: ProviderManagerProps) {
     [activeProvider]
   );
 
-  // -------------------------------------------------------------
   // Unified helpers exposed to the rest of the application
-  // -------------------------------------------------------------
-
   const addMessage = useCallback(
     (content: string, role: 'user' | 'assistant' = 'user') => {
       const { anthropic, openai } = syncDataRef.current;
@@ -323,10 +319,8 @@ export function AIProviderManager({ children }: ProviderManagerProps) {
 
   const loading = getLoadingState();
 
-  // -------------------------------------------------------------
   // Proxy helpers to expose provider-specific utilities
-  // -------------------------------------------------------------
-
+  
   const regenerateMessage = useCallback<AIProviderContextType['regenerateMessage']>(
     (provider, messages, onSuccess, modelOverride, useThinking) => {
       const target = syncDataRef.current[provider];
@@ -358,7 +352,7 @@ export function AIProviderManager({ children }: ProviderManagerProps) {
   const value = {
     activeProvider,
     setActiveProvider,
-    lastModel,
+    lastProvider,
     setLastModel,
     isAnthropicModel,
     isOpenAIModel,
