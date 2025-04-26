@@ -1,5 +1,6 @@
-import Link from "next/link";
-import React, { useEffect } from "react";
+// import Link from "next/link";
+import React, { useEffect, useCallback } from "react";
+import { useRouter } from "next/router";
 import { useAIProvider } from "../context/AIProviderManager";
 import { wrapIcon } from "../utils/Icon";
 import {
@@ -9,10 +10,16 @@ import {
   MdDelete as RawMdDelete,
   MdDownload as RawMdDownload,
   MdDriveFileRenameOutline as RawMdDriveFileRenameOutline,
+  MdPerson as RawMdPerson,
 } from "react-icons/md";
+import { BsRobot as RawBsRobot } from "react-icons/bs";
+import { RiRobot2Line as RawRiRobot2Line } from "react-icons/ri";
+import { BiConversation as RawBiConversation } from "react-icons/bi";
 import { Conversation as ConversationI } from "../context/History";
 import { useOpenAI } from "../context/OpenAIProvider";
 import { useAnthropic } from "../context/AnthropicProvider";
+import { updateConversation } from "../context/History";
+import { OpenAIApiKey, AnthropicApiKey } from "../utils/env";
 
 // Wrapped icons to ensure valid ReactElement return types
 const MdChatBubbleOutline = wrapIcon(RawMdChatBubbleOutline);
@@ -21,6 +28,11 @@ const MdClear = wrapIcon(RawMdClear);
 const MdDelete = wrapIcon(RawMdDelete);
 const MdDownload = wrapIcon(RawMdDownload);
 const MdDriveFileRenameOutline = wrapIcon(RawMdDriveFileRenameOutline);
+// Pseudo-icons for conversation entries
+const MdPerson = wrapIcon(RawMdPerson);
+const BsRobot = wrapIcon(RawBsRobot);
+const RiRobot2Line = wrapIcon(RawRiRobot2Line);
+const BiConversation = wrapIcon(RawBiConversation);
 
 type Props = {
   id: string;
@@ -37,31 +49,82 @@ const getMessageContent = (content: string | { reply: string; tokenUsage: number
 };
 
 export default function Conversation({ id, conversation, active }: Props) {
+  const router = useRouter();
   // Providers and methods
   const openai = useOpenAI();
   const anthropic = useAnthropic();
   const { updateConversationName, deleteConversation: deleteOpenAIConversation } = openai;
   const { deleteConversation: deleteAnthropicConversation } = anthropic;
-  const { activeProvider } = useAIProvider();
+  const { activeProvider, isOpenAIModel, setActiveProvider } = useAIProvider();
+
+  // Flag to disable automatic title regeneration (initialized from metadata)
+  const [disableAutoTitle, setDisableAutoTitle] = React.useState<boolean>(
+    conversation.disableAutoTitle ?? false
+  );
+
+  // Sync flag when conversation metadata changes (retrocompat)
+  React.useEffect(() => {
+    setDisableAutoTitle(conversation.disableAutoTitle ?? false);
+  }, [conversation.disableAutoTitle]);
+
+  // Auto-generate title on first user message for single provider
+  const generateTitle = React.useCallback(async () => {
+    if (!active || disableAutoTitle) return;
+    if (conversation.name !== '...') return;
+    const msgs = activeProvider === 'openai'
+      ? (conversation.openaiMessages ?? [])
+      : (conversation.anthropicMessages ?? []);
+    if (!msgs.length || msgs[0].role !== 'user') return;
+    const last = msgs[msgs.length - 1];
+    const content = typeof last.content === 'string' ? last.content : last.content.reply;
+    const titlePrompt = `Summarize the following text in three words, maintaining the language of the statement (usually french). Don't add any text at all to your answer (I need it to name a conversation via your API):
+  <TEXT>
+  ${content}
+  </TEXT>`;
+    try {
+      let headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      let bodyObj: any;
+      if (activeProvider === 'openai') {
+        headers.Authorization = `Bearer ${OpenAIApiKey}`;
+        bodyObj = { model: 'gpt-4.1-nano', messages: [{ role: 'user', content: titlePrompt }], max_completion_tokens: 100 };
+      } else {
+        headers['x-api-key'] = AnthropicApiKey;
+        headers['anthropic-version'] = '2023-06-01';
+        bodyObj = { model: 'claude-3-5-haiku-latest', messages: [{ role: 'user', content: titlePrompt }], max_completion_tokens: 100 };
+      }
+      const response = await fetch('/api/completion', { method: 'POST', headers, body: JSON.stringify(bodyObj) });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      const reply = data.reply;
+      updateConversation(id, { name: reply, disableAutoTitle: true });
+    } catch (err) {
+      console.error('Error generating title:', err);
+    }
+  }, [active, activeProvider, conversation, disableAutoTitle, id]);
+  
+  React.useEffect(() => { generateTitle(); }, [generateTitle]);
+  
+
   const [editing, setEditing] = React.useState(false);
 
-  // Fonction pour obtenir le nom initial
+  // Fonction pour obtenir le nom initial (fallback sur openaiMessages puis anthropicMessages)
   const getInitialName = (): string => {
     if (conversation.name) {
       return conversation.name;
     }
-    if (conversation.messages[0]?.content) {
-      return getMessageContent(conversation.messages[0].content);
+    const msgs = conversation.openaiMessages ?? conversation.anthropicMessages ?? [];
+    if (msgs[0]?.content) {
+      return getMessageContent(msgs[0].content);
     }
-    return "...";
+    return "?";
   };
 
   const [name, setName] = React.useState<string>(getInitialName());
 
-  // Synchroniser l'état local du nom avec les changements de la conversation
+  // Synchroniser l'état local du nom avec les changements de la conversation ou de messages
   useEffect(() => {
     setName(getInitialName());
-  }, [conversation.name, conversation.messages]);
+  }, [conversation.name, conversation.openaiMessages, conversation.anthropicMessages]);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setName(e.target.value);
@@ -70,6 +133,8 @@ export default function Conversation({ id, conversation, active }: Props) {
   const handleNameSubmit = () => {
     updateConversationName(id, name);
     setEditing(false);
+    // Disable auto title regeneration after manual rename
+    setDisableAutoTitle(true);
   };
 
   const handleNameCancel = () => {
@@ -81,10 +146,19 @@ export default function Conversation({ id, conversation, active }: Props) {
     setEditing(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent parent Link navigation
+    e.preventDefault();
+    e.stopPropagation();
     // Delete conversation in both providers to keep in sync
     deleteOpenAIConversation(id);
     deleteAnthropicConversation(id);
+    // Notify conversation list to refresh
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('historyUpdated'));
+    }
+    // Redirect away from deleted conversation
+    router.push('/');
   };
 
   const handleDownload = () => {
@@ -110,19 +184,23 @@ export default function Conversation({ id, conversation, active }: Props) {
         const mdBlob = new Blob([md], { type: 'text/plain' });
         const mdLink = document.createElement('a');
         mdLink.href = URL.createObjectURL(mdBlob);
-        mdLink.download = `${sanitizeFilename(conversation.name)}-${name}.md`;
+        mdLink.download = `${name}-${sanitizeFilename(conversation.name)}.md`;
         mdLink.click();
         // JSON export
-        const json = JSON.stringify({ name: conversation.name, messages: msgs }, null, 2);
+        const json = JSON.stringify({ name: name + '-' + conversation.name, messages: msgs }, null, 2);
         const jsonBlob = new Blob([json], { type: 'application/json' });
         const jsonLink = document.createElement('a');
         jsonLink.href = URL.createObjectURL(jsonBlob);
-        jsonLink.download = `${sanitizeFilename(conversation.name)}-${name}.json`;
+        jsonLink.download = `${name}-${sanitizeFilename(conversation.name)}.json`;
         jsonLink.click();
       });
     } else {
-      // Single provider: existing export
-      const conversationText = conversation.messages
+      // Single provider: export history for current active provider
+      const msgs = activeProvider === 'openai'
+        ? openai.messages
+        : anthropic.messages;
+      // Markdown export
+      const conversationText = (msgs || [])
         .map((msg: any) => `${msg.role}: ${getMessageContent(msg.content)}`)
         .join("\n\n");
       const textBlob = new Blob([conversationText], { type: "text/plain" });
@@ -130,8 +208,12 @@ export default function Conversation({ id, conversation, active }: Props) {
       textLink.href = URL.createObjectURL(textBlob);
       textLink.download = `${sanitizeFilename(conversation.name)}.md`;
       textLink.click();
-
-      const jsonData = JSON.stringify(conversation, null, 2);
+      // JSON export: include provider messages under 'messages' for compatibility
+      const exportObj = {
+        ...conversation,
+        messages: msgs,
+      };
+      const jsonData = JSON.stringify(exportObj, null, 2);
       const jsonBlob = new Blob([jsonData], { type: "application/json" });
       const jsonLink = document.createElement("a");
       jsonLink.href = URL.createObjectURL(jsonBlob);
@@ -147,14 +229,28 @@ export default function Conversation({ id, conversation, active }: Props) {
   };
 
   return (
-    <Link
-      href={`/chat/${id}`}
+    <div
+      // Navigate and sync provider on click
+      onClick={() => {
+        router.push(`/chat/${id}`);
+        setActiveProvider((conversation.lastModel ?? conversation.mode) as 'openai' | 'anthropic' | 'both');
+      }}
       className={`group relative flex flex-row items-center gap-3 rounded p-3 hover:bg-secondary ${
         active ? "bg-secondary" : ""
       }`}
     >
       <span>
-        <MdChatBubbleOutline />
+        {(() => {
+          // Primary: use lastModel to choose icon if available
+          if (conversation.lastModel === 'openai') return <BsRobot />;
+          if (conversation.lastModel === 'anthropic') return <RiRobot2Line />;
+          if (conversation.lastModel === 'both') return <BiConversation />;
+          if (conversation.mode === 'openai') return <BsRobot />;
+          if (conversation.mode === 'anthropic') return <RiRobot2Line />;
+          if (conversation.mode === 'both') return <BiConversation />;
+          // Default chat bubble
+          return <MdChatBubbleOutline />;
+        })()}
       </span>
       <div className="relative flex grow truncate text-clip">
         {editing ? (
@@ -217,6 +313,6 @@ export default function Conversation({ id, conversation, active }: Props) {
           </button>
         </div>
       )}
-    </Link>
+    </div>
   );
 }

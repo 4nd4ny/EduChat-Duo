@@ -1,5 +1,6 @@
 import React from "react";
-import { MdContentCopy } from "react-icons/md";
+import { wrapIcon } from "../utils/Icon";
+import { MdContentCopy as RawMdContentCopy } from "react-icons/md";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
@@ -34,6 +35,8 @@ type Props = {
 };
 
 export default function AssistantMessageContent({ content, ...props }: Props) {
+  // Wrapped icon to ensure valid ReactElement
+  const MdContentCopy = wrapIcon(RawMdContentCopy);
 
   // Fonction de transformation LaTeX
   const latex_transformer = (content: string): string  => {

@@ -13,7 +13,7 @@ export default function ChatPlaceholder({}: Props) {
       <div className="max-w-md p-4 text-center text-primary">
         <h1 className="text-4xl font-medium">EduChat</h1>
         <p className="mt-4 text-lg">
-          ChatGPT et Claude pour l'enseignement
+          Claude et ChatGPT pour l'enseignement
         </p>
         <h1>&nbsp;</h1>
         <p className="text-4xl text-center hover:text-primary flex items-center justify-center gap-1">
@@ -28,8 +28,8 @@ export default function ChatPlaceholder({}: Props) {
             {`
               .image-container {
                 position: relative;
-                width: 300px;
-                height: 300px;
+                width: 180px;
+                height: 180px;
               }
               @keyframes morph {
                   0%, 35% { opacity: 1; }    /* Image visible */
@@ -54,13 +54,13 @@ export default function ChatPlaceholder({}: Props) {
           <div className="image-container">
             <img 
               className="image-morph"
-              src="https://chamblandes.education/logo.png" 
-              alt="Gymnase de Chamblandes"
+              src="https://chamblandes.education/openai.png" 
+              alt="Gymnase de Chamblandes + OpenAI"
             />
             <img 
               className="image-morph"
-              src="https://chamblandes.education/regular-logo.png" 
-              alt="Gymnase de Chamblandes Alternatif"
+              src="https://chamblandes.education/claude.png" 
+              alt="Gymnase de Chamblandes + Anthropic"
             />
           </div>
         </center>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { wrapIcon } from "../utils/Icon";
 import {
   MdPerson as RawMdPerson,
@@ -21,8 +21,6 @@ const MdPsychology = wrapIcon(RawMdPsychology);
 const BsRobot = wrapIcon(RawBsRobot);
 const RiRobot2Line = wrapIcon(RawRiRobot2Line);
 import { useAIProvider } from "../context/AIProviderManager";
-import { useOpenAI } from "../context/OpenAIProvider";
-import { useAnthropic } from "../context/AnthropicProvider";
 
 type Props = {
   message: any;
@@ -49,44 +47,27 @@ export default function ChatMessage({
     isOpenAIModel, 
     isAnthropicModel, 
     activeProvider: currentActiveProvider,
-    setActiveProvider
+    lastModel,
+    regenerateMessage,
+    replaceMessages,
+    deleteMessagesFromIndex,
+    openaiMessages,
+    anthropicMessages,
+    loading
   } = useAIProvider();
   
-  const openai = useOpenAI();
-  const anthropic = useAnthropic();
   
   // Détermine le provider en fonction du modèle lorsqu'on est en mode dual
   const providerFromModel = isOpenAIModel(model) ? 'openai' : 'anthropic';
 
-  // Helper pour récupérer le provider actif selon le contexte ou le modèle si mode 'both'
-  const getActiveProvider = () => {
-    if (currentActiveProvider === 'both') {
-      return providerFromModel === 'openai' ? openai : anthropic;
-    }
-    return currentActiveProvider === 'openai' ? openai : anthropic;
-  };
-
-  const getAlternativeProvider = () => {
-    if (currentActiveProvider === 'both') {
-      return providerFromModel === 'openai' ? anthropic : openai;
-    }
-    return currentActiveProvider === 'openai' ? anthropic : openai;
-  };
-
+  // Plus de fonction getActiveProvider : la logique est gérée via AIProviderManager
   const getActiveProviderName = () => {
     if (currentActiveProvider === 'both') {
+      // En mode dual, montrer quel provider est utilisé pour ce message
       return providerFromModel === 'openai' ? 'ChatGPT' : 'Claude';
     }
     return currentActiveProvider === 'openai' ? 'ChatGPT' : 'Claude';
   };
-  const getAlternativeProviderName = () => currentActiveProvider === 'openai' ? 'Claude' : 'ChatGPT';
-
-  useEffect(() => {
-    if (isInitialUserMessage && role === 'user') {
-      // Utiliser le provider actif pour générer le titre
-      getActiveProvider().generateTitle();
-    }
-  }, [isInitialUserMessage, role]);
 
   const handleCopy = () => {
     const textContent = typeof content === 'string' ? content : content.reply;
@@ -95,14 +76,20 @@ export default function ChatMessage({
     setTimeout(() => setShowCopiedMessage(false), 2000);
   };
   
+
   const handleThinking = () => {
-    if (openai.loading || anthropic.loading) return;
+    if (loading) return;
     setShowThinkingMessage(true);
-    const activeProviderContext = getActiveProvider();
+    
+    // Déterminer le provider cible (openai / anthropic)
+    const targetProvider: 'openai' | 'anthropic' =
+      currentActiveProvider === 'both' ? providerFromModel as 'openai' | 'anthropic' : currentActiveProvider;
+
+    const providerMessages = targetProvider === 'openai' ? openaiMessages : anthropicMessages;
 
     // Trouver le dernier message de l'utilisateur
-    let lastUserIndex = activeProviderContext.messages.length - 1;
-    while (lastUserIndex >= 0 && activeProviderContext.messages[lastUserIndex].role !== 'user') {
+    let lastUserIndex = providerMessages.length - 1;
+    while (lastUserIndex >= 0 && providerMessages[lastUserIndex].role !== 'user') {
       lastUserIndex--;
     }
     
@@ -113,31 +100,49 @@ export default function ChatMessage({
     }
     
     // Récupérer les messages jusqu'au dernier message utilisateur
-    const relevantMessages = activeProviderContext.messages.slice(0, lastUserIndex + 1);
+    const relevantMessages = providerMessages.slice(0, lastUserIndex + 1);
     
-    // Choix du modèle
-    let nextModel = providerFromModel === 'openai' ? 'o4-mini' : 'claude-3-7-sonnet-latest';
-    if (providerFromModel === 'openai') {
-      const assistantMsgs = openai.messages.filter(m => m.role === 'assistant');
-      if (assistantMsgs.length > 0 && assistantMsgs[assistantMsgs.length - 1].model === 'o4-mini') {
-        nextModel = 'o3';
+    // Déterminer le modèle à utiliser
+    let nextModel = '';
+    
+    // Si on est en mode dual, utiliser le lastModel pour décider du modèle
+    if (currentActiveProvider === 'both') {
+      if (lastModel === 'openai' || (lastModel === 'both' && providerFromModel === 'openai')) {
+        // Alterner entre o4-mini et o3 pour OpenAI
+        const assistantMsgs = openaiMessages.filter(m => m.role === 'assistant');
+        nextModel = assistantMsgs.length > 0 && assistantMsgs[assistantMsgs.length - 1].model === 'o4-mini'
+          ? 'o3'
+          : 'o4-mini';
+      } else {
+        // Utiliser Claude
+        nextModel = 'claude-3-7-sonnet-latest';
       }
+    } else if (currentActiveProvider === 'openai') {
+      // Alterner entre o4-mini et o3 pour OpenAI
+      const assistantMsgs = openaiMessages.filter(m => m.role === 'assistant');
+      nextModel = assistantMsgs.length > 0 && assistantMsgs[assistantMsgs.length - 1].model === 'o4-mini'
+        ? 'o3'
+        : 'o4-mini';
+    } else {
+      // Utiliser Claude
+      nextModel = 'claude-3-7-sonnet-latest';
     }
     
-    // Régénérer le message avec le provider actif
-    activeProviderContext.regenerateMessage(
+    // Régénérer le message avec le provider actif en mode thinking
+    regenerateMessage(
+      targetProvider,
       relevantMessages,
-      (reply) => {
-        // Remplacer tous les messages après le dernier message utilisateur par cette nouvelle réponse
-        activeProviderContext.setMessages(prev => [
-          ...prev.slice(0, lastUserIndex + 1),
+      (reply: string) => {
+        const newMsgs = [
+          ...providerMessages.slice(0, lastUserIndex + 1),
           {
             id: lastUserIndex + 1,
             role: 'assistant',
             content: reply,
-            model: nextModel + (providerFromModel === 'anthropic' ? '-thinking' : '')
+            model: nextModel + (nextModel.startsWith('claude') ? '-thinking' : '')
           }
-        ]);
+        ];
+        replaceMessages(targetProvider, newMsgs);
       },
       nextModel,
       true
@@ -150,19 +155,34 @@ export default function ChatMessage({
     }, 100);
   };
 
-  // Fonction similaire pour handleRefreshAnswer
   const handleRefreshAnswer = () => {
-    if (openai.loading || anthropic.loading) return;
+    if (loading) return;
     
     setShowSwitchMessage(true);
     
-    // Trouver le dernier message de l'utilisateur
-    const activeProvider = getActiveProvider();
-    let currentModel = providerFromModel === 'openai' ? 'gpt-4.1' : 'claude-3-7-sonnet-latest';
+    // Déterminer le provider à utiliser en fonction du contexte
+    const targetProvider: 'openai' | 'anthropic' =
+      currentActiveProvider === 'both' ? providerFromModel as 'openai' | 'anthropic' : currentActiveProvider;
+    
+    // Déterminer le modèle à utiliser en fonction du provider
+    let currentModel = '';
+    
+    // Si on est en mode dual, utiliser le lastModel pour décider du modèle
+    if (currentActiveProvider === 'both') {
+      if (lastModel === 'openai' || (lastModel === 'both' && providerFromModel === 'openai')) {
+        currentModel = 'gpt-4.1';
+      } else {
+        currentModel = 'claude-3-7-sonnet-latest';
+      }
+    } else {
+      currentModel = currentActiveProvider === 'openai' ? 'gpt-4.1' : 'claude-3-7-sonnet-latest';
+    }
 
     // Trouver le dernier message de l'utilisateur
-    let lastUserIndex = activeProvider.messages.length - 1;
-    while (lastUserIndex >= 0 && activeProvider.messages[lastUserIndex].role !== 'user') {
+    const providerMessages = targetProvider === 'openai' ? openaiMessages : anthropicMessages;
+
+    let lastUserIndex = providerMessages.length - 1;
+    while (lastUserIndex >= 0 && providerMessages[lastUserIndex].role !== 'user') {
       lastUserIndex--;
     }
     
@@ -173,23 +193,23 @@ export default function ChatMessage({
     }
     
     // Récupérer les messages jusqu'au dernier message utilisateur
-    const relevantMessages = activeProvider.messages.slice(0, lastUserIndex + 1);
-    
-    // Régénérer une réponse avec la même provider
-    activeProvider.regenerateMessage(
-      relevantMessages, 
-      (reply) => {
-        // Remplacer tous les messages après le dernier message utilisateur
-        activeProvider.setMessages(prev => [
-          ...prev.slice(0, lastUserIndex + 1),
+    const relevantMessages = providerMessages.slice(0, lastUserIndex + 1);
+
+    regenerateMessage(
+      targetProvider,
+      relevantMessages,
+      (reply: string) => {
+        const newMsgs = [
+          ...providerMessages.slice(0, lastUserIndex + 1),
           {
             id: lastUserIndex + 1,
             role: 'assistant',
             content: reply,
             model: currentModel
           }
-        ]);
-      }, 
+        ];
+        replaceMessages(targetProvider, newMsgs);
+      },
       currentModel,
       false
     );
@@ -206,11 +226,10 @@ export default function ChatMessage({
     setShowDeleteMessage(true);
     setTimeout(() => {
       setShowDeleteMessage(false);
-      const activeCtx = getActiveProvider();
-      activeCtx.deleteMessagesFromIndex(messageIndex);
-      if (currentActiveProvider === 'both') {
-        getAlternativeProvider().deleteMessagesFromIndex(messageIndex);
-      }
+      const targetProvider: 'openai' | 'anthropic' =
+        currentActiveProvider === 'both' ? providerFromModel as 'openai' | 'anthropic' : currentActiveProvider;
+
+      deleteMessagesFromIndex(targetProvider, messageIndex);
       
       // Remettre le focus sur le champ d'input
       const inputField = document.querySelector('textarea[name="query"]') as HTMLTextAreaElement;
@@ -220,12 +239,24 @@ export default function ChatMessage({
 
   const formatModelName = (model: string): string => {
     if (!model) return 'UNKNOWN MODEL';
+    
+    // Si le mode est 'both', vérifier si les réponses sont identiques
+    if (model === 'both') {
+      return lastModel === 'both' 
+        ? 'IDENTICAL RESPONSES FROM BOTH MODELS'
+        : `${lastModel.toUpperCase()} (DUAL MODE)`;
+    }
+    
+    // Afficher le mode thinking si présent
     if (model && model.includes('thinking')) {
       return model.toUpperCase().replace(/-LATEST$/i, '').replace(/-THINKING$/i, ' (THINKING)');
     }
+    
+    // Format standard
     return model ? model.toUpperCase().replace(/-LATEST$/i, '') : '';
-  }
+  };
 
+  // Dans le rendu, modifier pour gérer les messages unifiés :
   return (
     <div
       className={`flex cursor-pointer flex-row items-center p-4 transition-all ${

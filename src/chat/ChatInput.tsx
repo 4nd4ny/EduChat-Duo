@@ -1,6 +1,4 @@
 import React, { useRef, useState, useCallback, useEffect, ChangeEvent } from "react";
-import { useOpenAI } from "../context/OpenAIProvider";
-import { useAnthropic } from "../context/AnthropicProvider";
 import { useAIProvider } from "../context/AIProviderManager";
 import { wrapIcon } from "../utils/Icon";
 import { MdSend as RawMdSend } from "react-icons/md";
@@ -12,14 +10,7 @@ export default function ChatInput({}: Props) {
   const MdSend = wrapIcon(RawMdSend);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState("");
-  const openai = useOpenAI();
-  const anthropic = useAnthropic();
-  const { activeProvider, syncProviders } = useAIProvider();
-  
-  // Utiliser le fournisseur actif
-  const currentProvider = activeProvider === 'openai' ? openai : anthropic;
-  const otherProvider = activeProvider === 'openai' ? anthropic : openai;
-  const { loading } = currentProvider;
+  const { activeProvider, addMessage, loading: isLoading } = useAIProvider();
   
   // Fonction pour maintenir le focus sur le textarea
   const maintainFocus = useCallback(() => {
@@ -38,24 +29,16 @@ export default function ChatInput({}: Props) {
   };
 
   const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
-    if (loading) return;
+    if (isLoading) return;
     e.preventDefault();
     if (input.trim()) {
-      // Synchroniser les providers avant envoi
-      syncProviders();
-      // En dual mode, envoyer le même message aux deux providers
-      if (activeProvider === 'both') {
-        anthropic.addMessage(input, true, 'user');
-        openai.addMessage(input, true, 'user');
-      } else {
-        // Mode simple
-        currentProvider.addMessage(input, true, 'user');
-      }
+      // Confier la logique à AIProviderManager
+      addMessage(input, 'user');
       setInput('');
       // Maintenir le focus après soumission
       setTimeout(maintainFocus, 100);
     }
-  }, [loading, input, currentProvider, otherProvider, syncProviders, maintainFocus]);
+  }, [isLoading, input, maintainFocus, addMessage, activeProvider]);
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
@@ -182,13 +165,12 @@ export default function ChatInput({}: Props) {
     activeModelName = 'OpenAI GPT-4.1 O4-mini O3';
   } else if (activeProvider === 'anthropic') {
     activeModelName = 'Anthropic Claude 3.7';
-  } else if (activeProvider === 'both') {
-    activeModelName = 'Dual mode'; // Ou le texte que vous souhaitez afficher
   } else {
-    // Optionnel : un cas par défaut si activeProvider n'est aucune des valeurs attendues
-    activeModelName = 'Aucun agent sélectionné';
-  }
+    activeModelName = 'Dual mode'; 
+  } 
 
+/*
+  // [WARNING] Je ne comprends ce que ça fait, mais c'est peut-être utile ! NE PAS SUPPRIMER !!!
   // Fonction pour gérer l'événement de changement de provider
   useEffect(() => {
     const handleProviderChange = (event: CustomEvent) => {
@@ -206,6 +188,8 @@ export default function ChatInput({}: Props) {
       document.removeEventListener('activeProviderChanged', handleProviderChange as EventListener);
     };
   }, []);
+*/
+
 
   // Assurer que le focus est placé sur le textarea au chargement de la page
   useEffect(() => {
@@ -245,9 +229,9 @@ export default function ChatInput({}: Props) {
           <button
             type="submit"
             className="rounded p-4 text-primary hover:bg-[#DC6521]"
-            disabled={loading || !input.trim()}
+            disabled={isLoading || !input.trim()}
           >
-            {loading ? (
+            {isLoading ? (
               <div className="mx-auto h-5 w-5 animate-spin rounded-full border-b-2 border-white" />
             ) : (
               <MdSend className="w-5 h-5" />

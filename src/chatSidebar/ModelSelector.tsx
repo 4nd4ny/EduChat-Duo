@@ -1,109 +1,67 @@
 import React, { useState } from 'react';
-import { useAIProvider } from '../context/AIProviderManager';
+import { useMode } from '../context/ModeContext';
+
+// Composant responsable de la sélection visuelle du modèle / mode
+// Il est désormais la **seule** source qui peut modifier le mode.
 
 const ModelSelector: React.FC = () => {
-  const { activeProvider, setActiveProvider, syncProviders, providerLocked } = useAIProvider();
+  const { mode, setMode } = useMode();
   const [hoverMid, setHoverMid] = useState(false);
 
-  // Selections
-  const anthropicSelected = activeProvider === 'anthropic' || activeProvider === 'both';
-  const openaiSelected   = activeProvider === 'openai'    || activeProvider === 'both';
+  // États visuels
+  const anthropicSelected = mode === 'anthropic' || mode === 'both';
+  const openaiSelected = mode === 'openai' || mode === 'both';
 
-  // Side button click: toggle or select
-  const handleSideClick = (side: 'anthropic' | 'openai') => {
-    if (providerLocked) return;
-    if (activeProvider === 'both' || activeProvider === side) {
-      setActiveProvider(side === 'anthropic' ? 'openai' : 'anthropic');
-    } else {
-      setActiveProvider(side);
-    }
+  // Handlers -------------------------------------------------------------
+  const handleDualModeClick = () => setMode('both');
+  const handleClaudeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMode('anthropic');
+  };
+  const handleChatGPTClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMode('openai');
   };
 
-  // Background click: select both
-  const handleMidClick = () => {
-    console.log("ModelSelector: handleMidClick invoked. activeProvider=", activeProvider, "providerLocked=", providerLocked);
-    if (providerLocked) {
-      console.log("ModelSelector: handleMidClick aborted because providerLocked is true");
-      return;
-    }
-    console.log("ModelSelector: calling syncProviders()");
-    syncProviders();
-    console.log("ModelSelector: calling setActiveProvider('both')");
-    setActiveProvider('both');
-  };
+  // Label descriptif
+  const providerText =
+    mode === 'openai' ? 'OpenAI GPT-4' : mode === 'anthropic' ? 'Anthropic Claude' : 'Dual mode';
 
-  let providerText;
-
-  if (activeProvider === 'openai') {
-    providerText = 'OpenAI GPT-4.1 O4-mini O3';
-  } else if (activeProvider === 'anthropic') {
-    providerText = 'Anthropic Claude 3.7';
-  } else if (activeProvider === 'both') {
-    providerText = 'Dual mode'; // Ou le texte que vous souhaitez afficher
-  } else {
-    // Optionnel : un cas par défaut si activeProvider n'est aucune des valeurs attendues
-    providerText = 'Aucun agent sélectionné';
-  }
-
-  console.log("ModelSelector");
   return (
-    <div className="flex flex-col w-full gap-y-2 border-y border-white/10 py-2 hover:bg-gray-700 cursor-pointer transition-colors"
-        onMouseEnter={() => setHoverMid(true)} // Déclenche l'état pour les boutons enfants
-        onMouseLeave={() => setHoverMid(false)}
-        onClick={handleMidClick} // Supprimé la condition providerLocked
-        // Optionnel: Ajoutez role="button", tabIndex="0", aria-label si pertinent pour l'accessibilité
-      >
-      <div
-        // Ajout de hover:bg-gray-800 pour le survol de la div
-        // Suppression des conditions liées à providerLocked
-        className={`flex w-full items-center px-3`} 
-      >
+    <div
+      className="flex flex-col w-full gap-y-2 border-y border-white/10 py-2 hover:bg-gray-700 cursor-pointer transition-colors"
+      onMouseEnter={() => setHoverMid(true)}
+      onMouseLeave={() => setHoverMid(false)}
+      onClick={handleDualModeClick}
+    >
+      <div className="flex w-full items-center px-3" onMouseEnter={() => setHoverMid(false)}>
         <button
-          // Simplification de la logique de classe : suppression de providerLocked
-          className={`flex-1 rounded-l-md py-2 text-center transition-colors
-            ${anthropicSelected
-              ? 'bg-[#DA7756] text-white' // Style si sélectionné
-              : hoverMid // Si la div parente est survolée ?
-                ? 'bg-gray-600 text-white' // Style des deux boutons au survol de la div
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700' // Style par défaut + survol individuel
-            }`
-          }
-          onClick={(e) => {
-            e.stopPropagation(); // Important pour ne pas déclencher handleMidClick
-            handleSideClick('anthropic'); // Appel direct sans condition
-          }}
-          aria-pressed={anthropicSelected}
-          // Attributs disabled et aria-disabled supprimés
+          className={`flex-1 rounded-l-md py-2 text-center transition-colors ${
+            hoverMid
+              ? 'bg-[#DA7756] text-white'
+              : anthropicSelected
+              ? 'bg-gray-400 text-black hover:bg-[#DA7756] hover:text-white'
+              : 'bg-gray-800 text-gray-400 hover:bg-[#DA7756] hover:text-white'
+          }`}
+          onClick={handleClaudeClick}
         >
           Claude
         </button>
 
-        {/* Espace où se trouvait le bouton milieu, maintenant géré par le survol/clic de la div */}
-
         <button
-          // Simplification de la logique de classe : suppression de providerLocked
-          className={`flex-1 rounded-r-md py-2 text-center transition-colors
-            ${openaiSelected
-              ? 'bg-[#00A67E] text-white' // Style si sélectionné
-              : hoverMid // Si la div parente est survolée ?
-                ? 'bg-gray-600 text-white' // Style des deux boutons au survol de la div
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700' // Style par défaut + survol individuel
-            }`
-          }
-          onClick={(e) => {
-            e.stopPropagation(); // Important pour ne pas déclencher handleMidClick
-            handleSideClick('openai'); // Appel direct sans condition
-          }}
-          aria-pressed={openaiSelected}
-          // Attributs disabled et aria-disabled supprimés
+          className={`flex-1 rounded-r-md py-2 text-center transition-colors ${
+            hoverMid
+              ? 'bg-[#00A67E] text-white'
+              : openaiSelected
+              ? 'bg-gray-400 text-black hover:bg-[#00A67E] hover:text-white'
+              : 'bg-gray-800 text-gray-400 hover:bg-[#00A67E] hover:text-white'
+          }`}
+          onClick={handleChatGPTClick}
         >
           ChatGPT
         </button>
       </div>
-      <div className="px-3 mt-1 text-xs text-gray-500 text-center">
-        {/* Assurez-vous que providerText est toujours pertinent ou supprimez/modifiez cette partie */}
-        {providerText}
-      </div>
+      <div className="px-3 mt-1 text-xs text-gray-500 text-center">{providerText}</div>
     </div>
   );
 };

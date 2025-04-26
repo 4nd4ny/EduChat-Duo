@@ -1,14 +1,24 @@
-import { OpenAIChatMessage } from "@/utils/OpenAI";
+import { OpenAIChatMessage } from './OpenAI/OpenAI.types';
 import { v4 as uuidv4 } from "uuid";
 
 const HISTORY_KEY = "pg-history";
 
 // Types
 export type Conversation = {
+  // Conversation metadata
   name: string;
+  // Whether automatic title regeneration is disabled (after manual rename)
+  disableAutoTitle?: boolean;
+  // Identifier of the last model used for assistant reply or active provider
+  lastModel?: string;
+  // Mode of the conversation: single provider or dual
+  mode?: 'openai' | 'anthropic' | 'both';
+  // Timestamps
   createdAt: number; // Unix timestamp
   lastMessage: number; // Unix timestamp
-  messages: OpenAIChatMessage[];
+  // Messages per provider
+  openaiMessages?: OpenAIChatMessage[];
+  anthropicMessages?: OpenAIChatMessage[];
 };
 
 export type History = Record<string, Conversation>;
@@ -24,6 +34,10 @@ export const storeConversation = (id: string, conversation: Conversation) => {
       [id]: conversation,
     })
   );
+  // Notify listeners that history has been updated
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('historyUpdated'));
+  }
   return id;
 };
 
@@ -49,6 +63,10 @@ export const updateConversation = (
       },
     })
   );
+  // Notify listeners that history has been updated
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('historyUpdated'));
+  }
 };
 
 // Delete a conversation from local storage
@@ -56,6 +74,10 @@ export const deleteConversationFromHistory = (id: string) => {
   const history = getHistory();
   delete history[id];
   localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  // Notify listeners that history has been updated
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('historyUpdated'));
+  }
 };
 
 // Get conversations from local storage
@@ -67,4 +89,8 @@ export const getHistory: () => History = () => {
 // Clear conversations from local storage
 export const clearHistory = () => {
   localStorage.removeItem(HISTORY_KEY);
+  // Notify listeners that history has been cleared
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('historyUpdated'));
+  }
 };

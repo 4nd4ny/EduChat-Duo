@@ -2,17 +2,16 @@ import { v4 as uuidv4 } from "uuid";
 import {
   Conversation,
   getHistory,
+  getConversation,
   clearHistory,
-  storeConversation,
   History,
   deleteConversationFromHistory,
   updateConversation,
 } from "./History";
-import {
-  OpenAIChatMessage,
-  OpenAIChatModels, 
+import { OpenAIChatModels } from "./OpenAI/OpenAI.constants";
+import { OpenAIChatMessage,
   ProviderSubmitFunction,
-} from "../utils/OpenAI";
+} from "./OpenAI/OpenAI.types";
 import {
   OpenAIApiKey,
 } from "../utils/env"
@@ -23,36 +22,31 @@ import React, {
 } from "react";
 import { useAIProvider } from "./AIProviderManager";
 import { useRouter } from "next/router";
-import { sanitizeString } from "../utils/sanitize";
 
 const CHAT_ROUTE = "/";
 
 const defaultContext = {
   loading: false,
-  
   messages: [] as OpenAIChatMessage[],
   setMessages: (() => {}) as React.Dispatch<React.SetStateAction<OpenAIChatMessage[]>>,
   submit: (() => {}) as (messages_?: OpenAIChatMessage[], modelIndex?: number) => Promise<void>,
-  regenerateMessage: (messages?: OpenAIChatMessage[], onSuccess?: (reply: string) => void, modelOverride?: string, useThinking?: boolean) => {}, // Updated
+  regenerateMessage: () => {},
   addMessage: () => {},
-  updateMessageContent: (id: number, content: string) => {},
-  removeMessage: (id: number) => {},
-  toggleMessageRole: (id: number) => {},
-
+  updateMessageContent: () => {},
+  removeMessage: () => {},
+  toggleMessageRole: () => {},
   conversationId: "",
   conversationName: "",
-  updateConversationName: (id: string, name: string) => {},
+  updateConversationName: () => {},
   generateTitle: () => {},
-  loadConversation: (id: string, conversation: Conversation) => {},
-  importConversation: (jsonData: any) => {},
-  resetConversation: () => {}, 
-  deleteConversation: (id: string) => {}, 
-  deleteMessagesFromIndex: (index: number) => {},
+  importConversation: () => {},
+  loadConversation: () => {},
+  resetConversation: () => {},
+  deleteConversation: () => {},
+  deleteMessagesFromIndex: () => {},
   clearConversation: () => {},
-
   conversations: {} as History,
   clearConversations: () => {},
-
   error: "",
 };
 
@@ -66,7 +60,8 @@ const OpenAIContext = React.createContext<{
   addMessage: (
     content?: string,
     submit?: boolean,
-    role?: "user" | "assistant"
+    role?: "user" | "assistant",
+    executiveModel?: string,
   ) => void;
   updateMessageContent: (id: number, content: string) => void;
   removeMessage: (id: number) => void;
@@ -79,7 +74,7 @@ const OpenAIContext = React.createContext<{
 
   loadConversation: (id: string, conversation: Conversation) => void;
   importConversation: (jsonData: any) => void;
-  resetConversation: () => void; 
+  resetConversation: (idParam?: string) => void; 
   deleteConversation: (id: string) => void;
   deleteMessagesFromIndex: (index: number) => void;
   clearConversation: () => void;
@@ -94,6 +89,7 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
   // General
   const router = useRouter(); 
   const [loading, setLoading] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
 
   // Model
   const modelList = Object.keys(OpenAIChatModels);
@@ -266,20 +262,24 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
     (
       content: string = "",
       newPrompt: boolean = true,
-      role: "user" | "assistant" = "user"
+      role: "user" | "assistant" = "user",
+      executiveModel?: string
     ) => {
       setMessages((prev) => {
         const prevMessages = prev || [];
-        const messages = [
+        const newMessages = [
           ...prevMessages,
           {
             id: prevMessages.length,
             role,
             content: content || "",
+            model: executiveModel,
           } as OpenAIChatMessage,
         ];
-        submit(messages);
-        return messages;
+        if (newPrompt) {
+          submit(newMessages);
+        }
+        return newMessages;
       });
     },
     [submit]
@@ -329,7 +329,8 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
 
   // Conversation 
   const [conversationId, setConversationId] = React.useState<string>("");
-  const [conversationName, setConversationName] = React.useState("");
+  // Initial placeholder for conversation title to trigger generateTitle effect
+  const [conversationName, setConversationName] = React.useState<string>("");
   const updateConversationName = (id: string, name: string) => {
     setConversations((prev) => {
       const conversation = prev[id];
@@ -343,171 +344,88 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
       };
     });
     if (id === conversationId) setConversationName(name);
-    updateConversation(id, { name });
+    // Update history and set disableAutoTitle flag
+    updateConversation(id, { name, disableAutoTitle: true });
   };
 
   // Persist current conversation including dual mode
-  const { activeProvider } = useAIProvider();
+  const { activeProvider, onStoreConversation, lastModel } = useAIProvider();
+
   const handleStoreConversation = useCallback(() => {
-  // Vérifier si messages existe et n'est pas vide
-  if (!messages?.length) return;
+
+    if (isLoading) return;
+    // Vérifier si messages existe et n'est pas vide
+    if (!messages?.length) return;
   
-    const conversation = {
-      name: conversationName || "...",
-      createdAt: Date.now(),
-      lastMessage: Date.now(),
-      messages,
+    // Merge with existing history to preserve other provider's messages
+    const existing = getConversation(conversationId) || {} as Conversation;
+    const conversationObj: Conversation = {
+      // Conversation metadata
+      name: existing.name ?? conversationName,
+      disableAutoTitle: existing.disableAutoTitle ?? false,
+      lastModel: lastModel,
       mode: activeProvider,
-    } as any;
+      // Timestamps
+      createdAt: existing.createdAt ?? Date.now(),
+      lastMessage: Date.now(),
+      // Message history per provider
+      anthropicMessages: existing.anthropicMessages || [],
+      openaiMessages: messages,
+    };
 
-    let id = storeConversation(conversationId, conversation);
-    setConversationId(id);
-    setConversations((prev) => ({ ...prev, [id]: conversation }));
+  // Utiliser l'ID existant ou en générer un nouveau
+  let idParam = conversationId;
+  const isNew = !idParam;
+  
+  // Si nouvelle conversation et en dual mode ou OpenAI mode, utiliser pendingConversationId s'il existe
+  if (isNew && typeof window !== 'undefined') {
+    const pending = localStorage.getItem('pendingConversationId');
+    if (pending) {
+      idParam = pending;
+      localStorage.removeItem('pendingConversationId');
+    }
+  }
+  
+  // Stocker la conversation avec l'ID déterminé
+  const id = onStoreConversation(idParam, conversationObj);
+  
+  // Si nouvelle conversation, définir pendingConversationId pour l'autre provider
+  if (isNew && (activeProvider === 'openai' || activeProvider === 'both') && typeof window !== 'undefined') {
+    localStorage.setItem('pendingConversationId', id);
+  }
+  
+  setConversationId(id);
+  setConversations((prev) => ({ ...prev, [id]: conversationObj }));
 
-    if (router.pathname === CHAT_ROUTE) router.push(`/chat/${id}`);
-  }, [conversationId, messages, conversationName, router.pathname]);
+  // Navigation
+  if (router.pathname === CHAT_ROUTE && (activeProvider === 'openai' || activeProvider === 'both')) {
+    router.push(`/chat/${id}`);
+  }
+}, [conversationId, messages, conversationName, router.pathname, activeProvider, lastModel, onStoreConversation]);
 
   useEffect(() => {
     handleStoreConversation();
   }, [messages, handleStoreConversation]);
 
-  const generateTitle = useCallback(async () => {
-    if (!messages?.length || !messages[0]?.content) {
-      setConversationName("...");
-      return;
-    }
-    // Éviter la récursion si on a déjà un nom
-    if (conversationName && conversationName !== "...") {
-      return;
-    }
-
-    const firstMessage = messages[0].content;
-    const messageText = typeof firstMessage === 'string' ? firstMessage : firstMessage.reply;
-
-    const titlePrompt = `Summarize the following text in three words, maintaining the language of the statement (usually french). Don't add any text at all to your answer (I need it to name a conversation via your API):
-      <TEXT>
-      ${messageText}
-      </TEXT>`;
-
-    updateInputTokens(titlePrompt);
-    try {
-      const response = await fetch('/api/completion', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${OpenAIApiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4.1',
-          messages: [{
-            role: "user",
-            content: titlePrompt
-          }],
-          max_completion_tokens: 100
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const { reply, tokenUsage } = await response.json(); // Lecture du contenu JSON  
-      setConversationName(reply);
-      updateConversationName(conversationId, reply);
-      updateTokenCount(tokenUsage);
-
-    } catch (error) {
-      console.error("Error generating title:", error);
-      setConversationName(messageText.slice(0, 30) + "...");
-    }
-  
-  }, [conversationId, messages, conversationName, updateConversationName]);
-
-  // Modifier également le useEffect pour éviter les appels inutiles :
-  useEffect(() => {
-    if (
-      messages?.length === 1 && 
-      messages[0]?.role === 'user' && 
-      conversationName === "..."
-    ) {
-      generateTitle();
-    }
-  }, [messages, conversationName, generateTitle]);
-
   const loadConversation = (id: string, conversation: Conversation) => {
+    setIsLoading(true);
     setConversationId(id);
-    const { messages, name } = conversation;
-    setMessages(messages);
-    setConversationName(name);
+    setMessages(conversation.openaiMessages || []);
+    setConversationName(conversation.name);
+    // Utiliser un effet différé pour réactiver la persistance
+    setTimeout(() => setIsLoading(false), 200);
   };
 
-  const importConversation = useCallback((jsonData: any) => {
-    try {
-      // 1. Validation stricte de la structure
-      if (!isValidConversationStructure(jsonData)) {
-        throw new Error("Invalid conversation structure");
-      }
-
-      // 2. Limiter la taille du JSON
-      const jsonString = JSON.stringify(jsonData);
-      if (jsonString.length > 1000000) { // Par exemple, limite à 1 Mo
-        throw new Error("Imported conversation is too large");
-      }
-
-      // 3. Sanitisation des données
-      /*
-      const sanitizedConversation: Conversation = {
-        name: jsonData.name, // Limiter à 100 caractères
-        createdAt: Number(jsonData.createdAt) || Date.now(),
-        lastMessage: Number(jsonData.lastMessage) || Date.now(),
-        messages: jsonData.messages.map((msg: any, index: number) => ({
-          id: index,
-          role: msg.role === "assistant" || msg.role === "user" ? msg.role : "user",
-          content: msg.content, // Limiter à 10000 caractères
-          model: msg.model
-        }))
-      };
-      */
-      const sanitizedConversation: Conversation = {
-        name: sanitizeString(jsonData.name, 100),
-        createdAt: Number(jsonData.createdAt) || Date.now(),
-        lastMessage: Number(jsonData.lastMessage) || Date.now(),
-        messages: jsonData.messages.map((msg: any, index: number) => ({
-          id: index,
-          role: msg.role === "assistant" || msg.role === "user" ? msg.role : "user",
-          content: typeof msg.content === 'string' 
-            ? sanitizeString(msg.content, 10000) 
-            : { 
-                reply: sanitizeString(typeof msg.content.reply === 'string' ? msg.content.reply : '', 10000), 
-                tokenUsage: Number(msg.content.tokenUsage) || 0 
-              },
-          model: msg.model
-        }))
-      };
-
-      const newId = uuidv4();
-
-      // Mettre à jour l'état local
-      setConversations((prev: History) => ({
-        ...prev,
-        [newId]: sanitizedConversation
-      }));
-
-      // Stocker la nouvelle conversation
-      storeConversation(newId, sanitizedConversation);
-
-      // Charger la conversation importée
-      loadConversation(newId, sanitizedConversation);
-
-      // Rediriger vers la nouvelle conversation
-      router.push(`/chat/${newId}`);
-
-      console.log("Conversation imported successfully");
-    } catch (error) {
-      console.error("Error importing conversation:", error);
-      // Notification à l'utilisateur
+  // Load conversation when the URL path changes to /chat/:id
+  React.useEffect(() => {
+    const path = router.asPath;
+    if (!path.startsWith('/chat/')) return;
+    const idParam = path.split('/chat/')[1]?.split(/[/?#]/)[0];
+    if (idParam && idParam !== conversationId) {
+      const conv = getConversation(idParam);
+      if (conv) loadConversation(idParam, conv);
     }
-  }, [router, loadConversation]);
+  }, [router.asPath, conversationId, loadConversation]);
 
   // Fonctions auxiliaires
 
@@ -536,19 +454,23 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
     });
   }, []);  
 
-  const resetConversation = useCallback(() => {
-    const newId = Date.now().toString();
+  const resetConversation = useCallback((idParam?: string) => {
+    // Create or reuse provided conversation ID
+    const newId = idParam ?? Date.now().toString();
 
     setConversationId(newId);
-    setConversationName("...");
     setMessages([]);
 
     // Créer une nouvelle conversation
     const newConversation: Conversation = {
       name: "...",
+      disableAutoTitle: false,
+      lastModel: lastModel,
+      mode: activeProvider,
       createdAt: Date.now(),
       lastMessage: Date.now(),
-      messages: [],
+      openaiMessages: [],
+      anthropicMessages: [],
     };
 
     // Mettre à jour l'historique des conversations
@@ -558,11 +480,11 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
     }));
 
     // Stocker la nouvelle conversation
-    storeConversation(newId, newConversation);
+    onStoreConversation(newId, newConversation);
 
     // Rediriger vers la nouvelle conversation
     router.push(`/chat/${newId}`);
-  }, [router]);
+  }, [router, activeProvider, lastModel, onStoreConversation]);
 
   const deleteConversation = (id: string) => {
     deleteConversationFromHistory(id);
@@ -589,6 +511,14 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
     setConversations(getHistory());
   }, []);
 
+useEffect(() => {
+  // Déclencher un événement pour indiquer que les messages ont été mis à jour
+  if (typeof window !== 'undefined' && messages.length > 0) {
+    const event = new Event('messagesUpdated');
+    document.dispatchEvent(event);
+  }
+}, [messages]);
+
   useEffect(() => {
     // Enregistrer les données pour la synchronisation
     registerOpenAIData({
@@ -597,8 +527,13 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
       conversationName,
       setMessages,
       updateConversationName,
+      addMessage,
+      loading,
+      regenerateMessage,
+      deleteMessagesFromIndex,
     });
-  }, []);
+  // Mettre à jour l'enregistrement lorsque les messages ou la conversation changent
+  }, [messages, conversationId, conversationName, loading]);
 
   const clearConversations = useCallback(() => {
     clearHistory();
@@ -612,10 +547,9 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
 
   const [error] = React.useState("");
 
- const value = React.useMemo(
+  const value = React.useMemo(
     () => ({
       loading,
-      
       messages,
       setMessages,
       submit,
@@ -623,43 +557,36 @@ export default function OpenAIProvider({ children }: PropsWithChildren) {
       addMessage,
       updateMessageContent,
       removeMessage,
-      
       toggleMessageRole,
-
       conversationId,
       conversationName,
       updateConversationName,
-      generateTitle,
+      generateTitle: () => {},
       loadConversation,
-      importConversation,
+      importConversation: () => {},
       deleteConversation,
       deleteMessagesFromIndex,
       resetConversation,
       clearConversation,
       clearConversations,
       conversations,
-      
       error,
     }),
     [
       loading,
-
       messages,
       setMessages,
       submit,
       regenerateMessage, 
       addMessage,
-
       conversationId,
       conversationName,
       registerOpenAIData,
       updateConversationName,
-      importConversation,
       deleteMessagesFromIndex,
       resetConversation,
       clearConversations,
       conversations,
-
       error,
     ]
   );

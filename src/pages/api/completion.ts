@@ -1,6 +1,6 @@
-import { OpenAIChatModels } from "../../utils/OpenAI/OpenAI.constants";
-import { getAnthropicCompletion, AnthropicRequest } from "../../utils/Anthropic";
-import { getOpenAICompletion, OpenAIRequest } from "../../utils/OpenAI";
+import { OpenAIChatModels } from "../../context/OpenAI/OpenAI.constants";
+import { getAnthropicCompletion, AnthropicRequest } from "../../context/Anthropic/Anthropic";
+import { getOpenAICompletion, OpenAIRequest } from "../../context/OpenAI/OpenAI";
 
 export const config = {
   runtime: "edge",

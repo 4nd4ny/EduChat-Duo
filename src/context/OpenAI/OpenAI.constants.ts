@@ -1,4 +1,4 @@
-import { OpenAIModel } from "./OpenAI.types"; // Assurez-vous que ce chemin est correct
+import { OpenAIModel } from "./OpenAI.types";
 
 export const OpenAIChatModels: Record<string, OpenAIModel> = {
   "gpt-4.1": { 
@@ -15,6 +15,11 @@ export const OpenAIChatModels: Record<string, OpenAIModel> = {
     id: "o3",
     name: "o3",
     maxLimit: 100000,
+  },
+  "gpt-4.1-nano": { 
+    id: "gpt-4.1-nano",
+    name: "gpt-4.1-nano", 
+    maxLimit: 32768, 
   },
 };
 

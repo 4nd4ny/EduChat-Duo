@@ -48,12 +48,4 @@ export interface ProviderRegenerateFunction {
 
 export interface ProviderContext {
   loading: boolean;
-  messages: AnthropicChatMessage[];
-  submit: ProviderSubmitFunction;
-  regenerateMessage: ProviderRegenerateFunction; // Added this declaration
-  addMessage: (content?: string, submit?: boolean, role?: "user" | "assistant") => void;
-  updateMessageContent: (id: number, content: string) => void;
-  removeMessage: (id: number) => void;
-  toggleMessageRole: (id: number) => void;
-  deleteMessagesFromIndex: (index: number) => void;
 }

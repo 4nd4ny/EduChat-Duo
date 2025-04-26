@@ -1,6 +1,6 @@
 import ChatMessages from "../../chat/ChatMessages";
 import { useRouter } from "next/router";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { getConversation } from "../../context/History";
 import { useAnthropic } from "../../context/AnthropicProvider";
 import { useOpenAI } from "../../context/OpenAIProvider";
@@ -11,86 +11,75 @@ export default function Chat() {
   const { id } = router.query;
   const { loadConversation: loadAnthropicConversation, conversationId: anthropicConversationId } = useAnthropic();
   const { loadConversation: loadOpenAIConversation, conversationId: openAIConversationId } = useOpenAI();
-  const { activeProvider, setActiveProvider, lockProvider, unlockProvider, isAnthropicModel, isOpenAIModel } = useAIProvider();
+  const { activeProvider, setActiveProvider } = useAIProvider();
+  const [loading, setLoading] = useState(false); // Définir l'état de chargement
 
+  // Effet principal optimisé pour initialiser la conversation
   useEffect(() => {
     if (!id || typeof id !== 'string') return;
     
-    if (typeof window !== "undefined") {
-      // Récupérer la conversation depuis le stockage local
-      const conversation = getConversation(id);
+    // Indiquer qu'un chargement est en cours
+    setLoading(true);
+    
+    // Ajouter un délai pour laisser le temps à l'analyse du lastModel ???
 
-      // S'il n'y a pas de conversation, rediriger vers la page d'accueil
+       const conversation = getConversation(id as string);
       if (!conversation) {
+        console.log(`[id].tsx: Conversation ${id} non trouvée, redirection...`);
         router.push("/");
-      } 
-      // Si la conversation n'est pas déjà chargée, la charger dans les deux providers
-      else if (anthropicConversationId !== id || openAIConversationId !== id) {
-        // Charger la conversation dans les deux providers pour maintenir la cohérence
+        return;
+      }
+      
+      // Déterminer le provider avec priorité claire
+      const provider = conversation.lastModel || conversation.mode || activeProvider;
+      console.log(`[id].tsx: Conversation ${id} a provider=${provider}, current=${activeProvider}`);
+      
+      // Toujours mettre à jour le provider de façon synchrone
+      if (provider !== activeProvider) {
+        console.log(`[id].tsx: Mise à jour de provider ${activeProvider} -> ${provider}`);
+        setActiveProvider(provider as 'anthropic' | 'openai' | 'both');
+      }
+      
+      // S'assurer que la conversation est chargée dans les deux providers
+      if (anthropicConversationId !== id) {
+        console.log(`[id].tsx: Chargement Anthropic conversation ${id}`);
         loadAnthropicConversation(id, conversation);
+      }
+      
+      if (openAIConversationId !== id) {
+        console.log(`[id].tsx: Chargement OpenAI conversation ${id}`);
         loadOpenAIConversation(id, conversation);
       }
-    }
-  }, [id, router, anthropicConversationId, openAIConversationId, loadAnthropicConversation, loadOpenAIConversation]);
-
-  useEffect(() => {
-    if (!id || typeof id !== 'string') return;
-    const convId = id as string;
-    const conversation = getConversation(convId);
-    if (!conversation) return;
-
-    // Trouver le premier message assistant pour déterminer le modèle utilisé
-    const firstAssistant = conversation.messages.find(m => m.role === 'assistant');
-    
-    // Si aucun message assistant n'existe encore, NE PAS verrouiller le sélecteur
-    // Cela permet à l'utilisateur de choisir le mode dual avant d'envoyer un message
-    if (!firstAssistant || !firstAssistant.model) {
-      // Déverrouiller pour permettre la sélection libre
-      unlockProvider();
-      return;
-    }
-
-    // Déterminer le provider basé sur le modèle
-    const hasAnthropic = isAnthropicModel(firstAssistant.model);
-    const hasOpenai = isOpenAIModel(firstAssistant.model);
-    
-    let provider: 'anthropic' | 'openai' | 'both' = 'anthropic'; // Par défaut anthropic
-    if (hasAnthropic && hasOpenai) {
-      provider = 'both';
-    } else if (hasOpenai) {
-      provider = 'openai';
-    }
-    
-    // Ne verrouiller que si la conversation a déjà des messages d'assistant
-    unlockProvider();
-    setActiveProvider(provider);
-    
-    // Uniquement verrouiller si la conversation contient déjà des réponses d'assistant
-    if (firstAssistant) {
-      lockProvider();
-    }
-    
-    // Mettre à jour l'affichage du modèle actif
-    setTimeout(() => {
-      const event = new CustomEvent('activeProviderChanged', { detail: { provider } });
-      document.dispatchEvent(event);
-    }, 100);
-    
-  }, [id, unlockProvider, setActiveProvider, lockProvider, isAnthropicModel, isOpenAIModel]);
-
-  // Déterminer le titre de la page
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      // Mettre à jour le titre de la page pour indiquer le modèle actif
-      const modelName = activeProvider === 'openai' ? 'ChatGPT' : 'Claude';
-      document.title = `EduChat - ${modelName}`;
-    }
-  }, [activeProvider]);
+      
+      // Mise à jour du titre immédiate
+      let modelName = 'EduChat';
+      if (provider === 'openai') {
+        modelName = 'ChatGPT';
+      } else if (provider === 'anthropic') {
+        modelName = 'Claude';
+      } else if (provider === 'both') {
+        modelName = 'Dual Mode';
+      }
+      
+      if (typeof window !== "undefined") {
+        document.title = `EduChat - ${modelName}`;
+      }
+      
+      // Terminé le chargement
+      setLoading(false); 
+  }, [id, activeProvider, anthropicConversationId, openAIConversationId, 
+      loadAnthropicConversation, loadOpenAIConversation, router, setActiveProvider]);
 
   return (
     <React.Fragment>
       <div className="max-w-screen relative h-screen max-h-screen w-screen overflow-hidden">
-        <ChatMessages />
+        {loading ? (
+          <div className="flex h-full w-full items-center justify-center">
+            <p className="text-primary">Chargement de la conversation...</p>
+          </div>
+        ) : (
+          <ChatMessages />
+        )}
       </div>
     </React.Fragment>
   );

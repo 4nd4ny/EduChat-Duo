@@ -6,7 +6,10 @@ import {
   MdDeleteOutline as RawMdDeleteOutline,
   MdUploadFile as RawMdUploadFile,
 } from "react-icons/md";
+import { BsRobot as RawBsRobot } from "react-icons/bs";
+import { RiRobot2Line as RawRiRobot2Line } from "react-icons/ri";
 import { useAnthropic } from "../context/AnthropicProvider";
+import { useAIProvider } from "../context/AIProviderManager";
 import { useOpenAI } from "../context/OpenAIProvider";
 import Conversations from "./Conversations";
 import ButtonContainer from "./ButtonContainer";
@@ -19,16 +22,32 @@ type Props = {};
 const MdAdd = wrapIcon(RawMdAdd);
 const MdDeleteOutline = wrapIcon(RawMdDeleteOutline);
 const MdUploadFile = wrapIcon(RawMdUploadFile);
+const BsRobot = wrapIcon(RawBsRobot);
+const RiRobot2Line = wrapIcon(RawRiRobot2Line);
+
 export default function ChatSidebar({}: Props) {
   const openai = useOpenAI();
   const anthropic = useAnthropic();
+  const { activeProvider, setActiveProvider, importConversationCoordinated } = useAIProvider(); 
 
   const handleNewChat = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Réinitialiser les deux providers
-    openai.resetConversation();
-    anthropic.resetConversation();
-  }; 
+    // Generate a unique conversation ID for this new chat
+    const newId = Date.now().toString();
+    // Reset the appropriate provider(s) with the same ID
+    if (activeProvider === 'openai') {
+      openai.resetConversation(newId);
+    } else if (activeProvider === 'anthropic') {
+      anthropic.resetConversation(newId);
+    } else {
+      openai.resetConversation(newId);
+      anthropic.resetConversation(newId);
+    }
+    // Notify to refresh conversation list
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('historyUpdated'));
+    }
+  };
 
   const handleClearConversations = () => {
     openai.clearConversations();
@@ -44,8 +63,11 @@ export default function ChatSidebar({}: Props) {
         const fileContent = reader.result as string;
         try {
           const jsonData = JSON.parse(fileContent);
-          openai.importConversation(jsonData);
-          anthropic.importConversation(jsonData); // Importer aussi pour Anthropic
+          importConversationCoordinated(jsonData);
+          // Mettre à jour la liste des conversations
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('historyUpdated'));
+          }
         } catch (error) {
           console.error('Error parsing JSON:', error);
           // Vous pourriez ajouter ici une notification pour l'utilisateur
@@ -53,7 +75,7 @@ export default function ChatSidebar({}: Props) {
       };
       reader.readAsText(file);
     });
-  }, [openai, anthropic]);
+  }, [openai, importConversationCoordinated]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop,
@@ -63,7 +85,7 @@ export default function ChatSidebar({}: Props) {
   });
 
   return (
-    <div className="flex flex-col bg-gray-900 left-0 top-0 h-full max-h-screen text-primary md:fixed md:w-[320px]">
+    <div className="flex flex-col bg-gray-900 left-0 top-0 h-full max-h-screen text-primary md:fixed md:w-[328px]">
       <div className="flex h-full flex-col items-stretch p-2">
 
         <div className="flex flex-col gap-y-2 border-y border-white/10 py-2">  
@@ -82,9 +104,7 @@ export default function ChatSidebar({}: Props) {
           </div>
         </div>
 
-        {/* Ajouter le sélecteur de modèle */}
         <ModelSelector />
-
         <Conversations />
 
         <div className="flex flex-col gap-y-2 border-y border-white/10 py-2">
