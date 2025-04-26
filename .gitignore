@@ -25,11 +25,4 @@ auth_log.txt
 failed_attempts.json
 
 # Fichiers qui ne changent pas
-ChatGPT.env
-Claude.env
-chamblandes_logo.png
-conf/
-favicon.ico
-historique_modifs.txt
-public/
 tsconfig.tsbuildinfo
